@@ -42,6 +42,60 @@
 
     <section class="section status">
       <div class="container">
+        <div class="status-toolbar">
+          <p class="status-updated" id="statusUpdated"></p>
+          <button type="button" class="btn btn-admin" id="adminLoginBtn">관리자</button>
+        </div>
+
+        <div class="admin-panel hidden" id="adminPanel">
+          <div class="admin-panel-header">
+            <h2>업무 등록 · 수정</h2>
+            <button type="button" class="btn btn-outline-dark" id="adminLogoutBtn">로그아웃</button>
+          </div>
+          <form class="admin-form" id="projectForm">
+            <input type="hidden" id="projectId" name="id">
+            <div class="admin-form-grid">
+              <div class="form-group">
+                <label for="projectName">프로젝트명 <span class="required">*</span></label>
+                <input type="text" id="projectName" name="name" required placeholder="프로젝트명">
+              </div>
+              <div class="form-group">
+                <label for="projectAssignee">담당 <span class="required">*</span></label>
+                <input type="text" id="projectAssignee" name="assignee" required placeholder="담당자 또는 팀">
+              </div>
+              <div class="form-group">
+                <label for="projectStart">시작일 <span class="required">*</span></label>
+                <input type="date" id="projectStart" name="start" required>
+              </div>
+              <div class="form-group">
+                <label for="projectEnd">목표일 <span class="required">*</span></label>
+                <input type="date" id="projectEnd" name="end" required>
+              </div>
+              <div class="form-group">
+                <label for="projectProgress">진행률 (%)</label>
+                <input type="number" id="projectProgress" name="progress" min="0" max="100" value="0">
+              </div>
+              <div class="form-group">
+                <label for="projectStatus">상태 <span class="required">*</span></label>
+                <select id="projectStatus" name="status" required>
+                  <option value="waiting">대기</option>
+                  <option value="progress">진행중</option>
+                  <option value="review">검수중</option>
+                  <option value="done">완료</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="projectContent">개발 내용 <span class="required">*</span></label>
+              <textarea id="projectContent" name="content" rows="4" required placeholder="현재 개발 진행 내용, 완료 항목, 이슈 등을 입력해 주세요"></textarea>
+            </div>
+            <div class="admin-form-actions">
+              <button type="submit" class="btn btn-primary" id="projectSubmitBtn">등록</button>
+              <button type="button" class="btn btn-outline-dark hidden" id="projectCancelBtn">취소</button>
+            </div>
+          </form>
+        </div>
+
         <div class="status-summary">
           <div class="status-stat">
             <span class="status-stat-num" id="statTotal">0</span>
@@ -71,14 +125,36 @@
                 <th>목표일</th>
                 <th>진행률</th>
                 <th>상태</th>
+                <th class="col-admin hidden" id="adminColHeader">관리</th>
               </tr>
             </thead>
             <tbody id="statusTableBody"></tbody>
           </table>
+          <div class="list-empty hidden" id="statusEmpty">
+            <p>등록된 개발 업무가 없습니다.</p>
+          </div>
         </div>
       </div>
     </section>
   </main>
+
+  <div class="modal hidden" id="loginModal">
+    <div class="modal-backdrop" id="loginModalBackdrop"></div>
+    <div class="modal-content">
+      <h2 class="modal-title">관리자 로그인</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="adminPassword">비밀번호</label>
+          <input type="password" id="adminPassword" required placeholder="관리자 비밀번호">
+        </div>
+        <p class="modal-hint">초기 비밀번호: edgacst2026</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline-dark" id="loginCancelBtn">취소</button>
+          <button type="submit" class="btn btn-primary">로그인</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <footer class="footer">
     <div class="container footer-inner">

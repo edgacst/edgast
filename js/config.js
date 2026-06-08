@@ -14,6 +14,6 @@
 // ============================================================
 
 const GOOGLE_CONFIG = {
-  FORM_EMBED_URL: '',
+  FORM_EMBED_URL: 'https://docs.google.com/forms/d/e/1FAIpQLScb7N9_uzRhrAuo02VHMD2luEm0uGsv4ZAjqpQezi8v0N-3ZQ/viewform?embedded=true',
   SPREADSHEET_URL: 'https://docs.google.com/spreadsheets/d/1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI/edit'
 };

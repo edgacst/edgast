@@ -206,7 +206,7 @@ function initStatusAdmin() {
     resetProjectForm();
     updateAdminUI();
     updateInquiryAdminBtn();
-    updateInquiryLogoutBtn();
+    updateInquiryAdminUI();
     renderStatusTable();
     loadInquiries();
     showToast('로그아웃되었습니다.');
@@ -221,7 +221,7 @@ function initStatusAdmin() {
       updateAdminUI();
       renderStatusTable();
       updateInquiryAdminBtn();
-      updateInquiryLogoutBtn();
+      updateInquiryAdminUI();
       loadInquiries();
       showToast('관리자 로그인되었습니다.');
       if (adminPanel) {
@@ -368,10 +368,11 @@ function initInquiryPage() {
   if (!form) return;
 
   document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries());
+  document.getElementById('inquiryAdminLoginBtn')?.addEventListener('click', () => openLoginModal());
   document.getElementById('inquiryLogoutBtn')?.addEventListener('click', () => {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     updateInquiryAdminBtn();
-    updateInquiryLogoutBtn();
+    updateInquiryAdminUI();
     loadInquiries();
     showToast('로그아웃되었습니다.');
   });
@@ -383,6 +384,7 @@ function initInquiryPage() {
     submitInquiryReply(btn);
   });
 
+  updateInquiryAdminUI();
   loadInquiries();
 
   form.addEventListener('submit', async (e) => {
@@ -461,8 +463,24 @@ function initInquiryAdminBtn() {
   updateInquiryAdminBtn();
 }
 
-function updateInquiryLogoutBtn() {
-  document.getElementById('inquiryLogoutBtn')?.classList.toggle('hidden', !isAdminLoggedIn());
+function updateInquiryAdminUI() {
+  const loggedIn = isAdminLoggedIn();
+  document.getElementById('inquiryLogoutBtn')?.classList.toggle('hidden', !loggedIn);
+  document.getElementById('inquiryAdminLoginBtn')?.classList.toggle('hidden', loggedIn);
+  document.getElementById('inquiryAdminBanner')?.classList.toggle('hidden', !loggedIn);
+  document.getElementById('inquiryListSection')?.classList.toggle('inquiry-list--admin', loggedIn);
+}
+
+function formatInquiryDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}.${m}.${day} ${h}:${min}`;
 }
 
 function hasScriptConfig() {
@@ -508,7 +526,7 @@ function renderInquiryList(inquiries) {
   const container = document.getElementById('inquiryListContainer');
   if (!container) return;
 
-  updateInquiryLogoutBtn();
+  updateInquiryAdminUI();
 
   if (!inquiries.length) {
     container.innerHTML = '<p class="list-empty">등록된 문의가 없습니다.</p>';
@@ -520,22 +538,26 @@ function renderInquiryList(inquiries) {
 }
 
 function renderInquiryItem(item, admin) {
-  const replyHtml = item.reply
+  const hasReply = Boolean(item.reply || item.hasReply);
+
+  const replyHtml = hasReply
     ? `<div class="inquiry-item-reply">
         <span class="inquiry-reply-label">관리자 답변</span>
         <div class="inquiry-reply-body">${linkifyText(item.reply)}</div>
       </div>`
-    : '<p class="inquiry-reply-pending">답변 대기 중입니다.</p>';
+    : '';
 
-  const statusBadge = item.reply || item.hasReply
+  const statusBadge = hasReply
     ? '<span class="inquiry-status answered">답변완료</span>'
     : '<span class="inquiry-status waiting">답변대기</span>';
 
   const adminBlock = admin
     ? `<div class="inquiry-item-admin">
+        <p class="inquiry-admin-only-label">관리자 전용</p>
         <p class="inquiry-item-contact">이메일: ${escapeHtml(item.email || '-')} · 연락처: ${escapeHtml(item.phone || '-')}</p>
+        ${hasReply ? '' : '<p class="inquiry-reply-pending">답변 대기 중입니다.</p>'}
         <div class="inquiry-reply-form">
-          <label class="inquiry-reply-form-label">관리자 답변 작성</label>
+          <label class="inquiry-reply-form-label">답변 작성</label>
           <textarea class="inquiry-reply-input" rows="3" data-row="${item.row}" placeholder="답변 내용을 입력하세요">${escapeHtml(item.reply || '')}</textarea>
           <button type="button" class="btn btn-primary btn-sm inquiry-reply-btn" data-row="${item.row}">답변 등록</button>
         </div>
@@ -549,8 +571,8 @@ function renderInquiryItem(item, admin) {
         ${statusBadge}
       </div>
       <div class="inquiry-item-meta">
-        <span>${escapeHtml(item.name || '익명')}</span>
-        <span class="inquiry-item-date">${escapeHtml(item.date || '')}</span>
+        <span class="inquiry-item-author">${escapeHtml(item.name || '익명')}</span>
+        <span class="inquiry-item-date">${escapeHtml(formatInquiryDate(item.date))}</span>
       </div>
       <div class="inquiry-item-message">${linkifyText(item.message || '')}</div>
       ${replyHtml}
@@ -627,7 +649,7 @@ function initInquiryLogin() {
       sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
       closeLoginModal();
       updateInquiryAdminBtn();
-      updateInquiryLogoutBtn();
+      updateInquiryAdminUI();
       loadInquiries();
       showToast('관리자 로그인되었습니다.');
       document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -839,10 +839,41 @@ body {
   margin-left: 0;
 }
 
+.inquiry-board {
+  padding-bottom: 24px;
+}
+
+.inquiry-write {
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.section-subtitle {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 24px;
+}
+
 /* Inquiry List */
 .inquiry-list {
-  border-top: 1px solid var(--color-border);
-  padding-top: 48px;
+  padding-top: 0;
+}
+
+.list-desc {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.inquiry-admin-banner {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius);
 }
 
 .inquiry-list-header {
@@ -990,9 +1021,26 @@ body {
 }
 
 .inquiry-item-admin {
+  display: none;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px dashed var(--color-border);
+}
+
+.inquiry-list--admin .inquiry-item-admin {
+  display: block;
+}
+
+.inquiry-admin-only-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+
+.inquiry-item-author {
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 .inquiry-item-contact {

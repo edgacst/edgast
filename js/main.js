@@ -600,8 +600,6 @@ function renderInquiryItem(item, admin, number) {
   const subject = escapeHtml(item.subject || '(제목 없음)');
   const author = escapeHtml(item.name || '익명');
   const date = escapeHtml(formatInquiryDate(item.date));
-  const initial = author.charAt(0) || '?';
-
   const replyHtml = hasReply
     ? `<div class="board-detail-reply">
         <div class="board-detail-label">관리자 답변</div>
@@ -637,10 +635,7 @@ function renderInquiryItem(item, admin, number) {
           ${hasReply ? '<span class="board-reply-badge">답변</span>' : ''}
         </button>
       </td>
-      <td class="board-td-author">
-        <span class="board-author-avatar">${initial}</span>
-        <span class="board-author-name">${author}</span>
-      </td>
+      <td class="board-td-author">${author}</td>
       <td class="board-td-date">${date}</td>
     </tr>
     <tr class="board-detail-row" data-row="${item.row}">

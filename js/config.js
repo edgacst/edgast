@@ -1,4 +1,4 @@
-// Google Form → 스프레드시트 자동 저장 (승인·임베드 불필요)
+// Google Form → 스프레드시트 저장 + Apps Script → 목록·답변·백업
 const GOOGLE_CONFIG = {
   FORM_ACTION_URL: 'https://docs.google.com/forms/d/e/1FAIpQLScb7N9_uzRhrAuo02VHMD2luEm0uGsv4ZAjqpQezi8v0N-3ZQ/formResponse',
   FORM_ENTRIES: {
@@ -8,5 +8,7 @@ const GOOGLE_CONFIG = {
     subject: 'entry.786471210',
     message: 'entry.402639363'
   },
+  // Apps Script 웹앱 배포 URL (google-apps-script/Code.gs 배포 후 입력)
+  SCRIPT_URL: '',
   SPREADSHEET_URL: 'https://docs.google.com/spreadsheets/d/1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI/edit'
 };

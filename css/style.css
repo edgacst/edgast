@@ -912,6 +912,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -926,6 +927,10 @@ body {
 }
 
 .inquiry-item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   font-size: 0.85rem;
   color: var(--color-text-light);
   margin-bottom: 8px;
@@ -935,6 +940,90 @@ body {
   font-size: 0.95rem;
   color: var(--color-text);
   line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.inquiry-status {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.inquiry-status.waiting {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.inquiry-status.answered {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.inquiry-item-reply {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(59, 130, 246, 0.06);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.inquiry-reply-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 6px;
+}
+
+.inquiry-reply-body {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.inquiry-reply-pending {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+}
+
+.inquiry-item-admin {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.inquiry-item-contact {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin-bottom: 12px;
+}
+
+.inquiry-reply-form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.inquiry-reply-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: var(--font-family);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 10px;
+}
+
+.inquiry-reply-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 /* Footer */

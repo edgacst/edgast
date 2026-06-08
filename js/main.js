@@ -206,7 +206,9 @@ function initStatusAdmin() {
     resetProjectForm();
     updateAdminUI();
     updateInquiryAdminBtn();
+    updateInquiryLogoutBtn();
     renderStatusTable();
+    loadInquiries();
     showToast('로그아웃되었습니다.');
   });
 
@@ -219,11 +221,13 @@ function initStatusAdmin() {
       updateAdminUI();
       renderStatusTable();
       updateInquiryAdminBtn();
+      updateInquiryLogoutBtn();
+      loadInquiries();
       showToast('관리자 로그인되었습니다.');
       if (adminPanel) {
         adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (GOOGLE_CONFIG?.SPREADSHEET_URL) {
-        window.open(GOOGLE_CONFIG.SPREADSHEET_URL, '_blank', 'noopener,noreferrer');
+      } else {
+        document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     } else {
       showToast('비밀번호가 올바르지 않습니다.');
@@ -363,6 +367,24 @@ function initInquiryPage() {
   const form = document.getElementById('inquiryForm');
   if (!form) return;
 
+  document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries());
+  document.getElementById('inquiryLogoutBtn')?.addEventListener('click', () => {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    updateInquiryAdminBtn();
+    updateInquiryLogoutBtn();
+    loadInquiries();
+    showToast('로그아웃되었습니다.');
+  });
+
+  const listContainer = document.getElementById('inquiryListContainer');
+  listContainer?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.inquiry-reply-btn');
+    if (!btn) return;
+    submitInquiryReply(btn);
+  });
+
+  loadInquiries();
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -393,6 +415,7 @@ function initInquiryPage() {
 
       form.reset();
       showToast('문의가 등록되었습니다.');
+      setTimeout(() => loadInquiries(), 2500);
     } catch {
       showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -425,13 +448,166 @@ function updateInquiryAdminBtn() {
 function initInquiryAdminBtn() {
   document.querySelectorAll('#inquiryAdminBtn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (isAdminLoggedIn()) {
-        const url = GOOGLE_CONFIG?.SPREADSHEET_URL;
-        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      if (!isAdminLoggedIn()) return;
+      if (document.getElementById('inquiryListSection')) {
+        document.getElementById('inquiryListSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        loadInquiries();
+        return;
       }
+      const url = GOOGLE_CONFIG?.SPREADSHEET_URL;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
     });
   });
   updateInquiryAdminBtn();
+}
+
+function updateInquiryLogoutBtn() {
+  document.getElementById('inquiryLogoutBtn')?.classList.toggle('hidden', !isAdminLoggedIn());
+}
+
+function hasScriptConfig() {
+  return Boolean(GOOGLE_CONFIG?.SCRIPT_URL);
+}
+
+async function loadInquiries() {
+  const container = document.getElementById('inquiryListContainer');
+  if (!container) return;
+
+  if (!hasScriptConfig()) {
+    container.innerHTML = `
+      <div class="list-error">
+        <p>문의 목록을 표시하려면 Apps Script 웹앱 URL이 필요합니다.</p>
+        <p style="margin-top:8px;font-size:0.9rem;">google-apps-script/Code.gs 를 배포한 뒤 <code>js/config.js</code> 의 <code>SCRIPT_URL</code> 에 입력해 주세요.</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '<p class="list-loading">문의 목록을 불러오는 중...</p>';
+
+  try {
+    const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
+    url.searchParams.set('action', 'list');
+    if (isAdminLoggedIn()) {
+      url.searchParams.set('token', getAdminPassword());
+    }
+
+    const res = await fetch(url.toString());
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'load failed');
+    }
+
+    renderInquiryList(data.inquiries || []);
+  } catch {
+    container.innerHTML = '<p class="list-error">문의 목록을 불러오지 못했습니다. SCRIPT_URL 과 Apps Script 배포를 확인해 주세요.</p>';
+  }
+}
+
+function renderInquiryList(inquiries) {
+  const container = document.getElementById('inquiryListContainer');
+  if (!container) return;
+
+  updateInquiryLogoutBtn();
+
+  if (!inquiries.length) {
+    container.innerHTML = '<p class="list-empty">등록된 문의가 없습니다.</p>';
+    return;
+  }
+
+  const admin = isAdminLoggedIn();
+  container.innerHTML = `<div class="list-items">${inquiries.map(item => renderInquiryItem(item, admin)).join('')}</div>`;
+}
+
+function renderInquiryItem(item, admin) {
+  const replyHtml = item.reply
+    ? `<div class="inquiry-item-reply">
+        <span class="inquiry-reply-label">관리자 답변</span>
+        <div class="inquiry-reply-body">${linkifyText(item.reply)}</div>
+      </div>`
+    : '<p class="inquiry-reply-pending">답변 대기 중입니다.</p>';
+
+  const statusBadge = item.reply || item.hasReply
+    ? '<span class="inquiry-status answered">답변완료</span>'
+    : '<span class="inquiry-status waiting">답변대기</span>';
+
+  const adminBlock = admin
+    ? `<div class="inquiry-item-admin">
+        <p class="inquiry-item-contact">이메일: ${escapeHtml(item.email || '-')} · 연락처: ${escapeHtml(item.phone || '-')}</p>
+        <div class="inquiry-reply-form">
+          <label class="inquiry-reply-form-label">관리자 답변 작성</label>
+          <textarea class="inquiry-reply-input" rows="3" data-row="${item.row}" placeholder="답변 내용을 입력하세요">${escapeHtml(item.reply || '')}</textarea>
+          <button type="button" class="btn btn-primary btn-sm inquiry-reply-btn" data-row="${item.row}">답변 등록</button>
+        </div>
+      </div>`
+    : '';
+
+  return `
+    <article class="inquiry-item" data-row="${item.row}">
+      <div class="inquiry-item-header">
+        <h3 class="inquiry-item-subject">${escapeHtml(item.subject || '(제목 없음)')}</h3>
+        ${statusBadge}
+      </div>
+      <div class="inquiry-item-meta">
+        <span>${escapeHtml(item.name || '익명')}</span>
+        <span class="inquiry-item-date">${escapeHtml(item.date || '')}</span>
+      </div>
+      <div class="inquiry-item-message">${linkifyText(item.message || '')}</div>
+      ${replyHtml}
+      ${adminBlock}
+    </article>`;
+}
+
+async function submitInquiryReply(btn) {
+  if (!isAdminLoggedIn()) {
+    showToast('관리자 로그인이 필요합니다.');
+    return;
+  }
+
+  if (!hasScriptConfig()) {
+    showToast('SCRIPT_URL 이 설정되지 않았습니다.');
+    return;
+  }
+
+  const row = btn.dataset.row;
+  const article = btn.closest('.inquiry-item');
+  const textarea = article?.querySelector('.inquiry-reply-input');
+  const reply = textarea?.value.trim() || '';
+
+  if (!reply) {
+    showToast('답변 내용을 입력해 주세요.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '등록 중...';
+
+  try {
+    const res = await fetch(GOOGLE_CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'reply',
+        token: getAdminPassword(),
+        row: Number(row),
+        reply
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'reply failed');
+    }
+
+    showToast('답변이 등록되었습니다.');
+    loadInquiries();
+  } catch {
+    showToast('답변 등록에 실패했습니다.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '답변 등록';
+  }
 }
 
 function initInquiryLogin() {
@@ -451,10 +627,10 @@ function initInquiryLogin() {
       sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
       closeLoginModal();
       updateInquiryAdminBtn();
+      updateInquiryLogoutBtn();
+      loadInquiries();
       showToast('관리자 로그인되었습니다.');
-      if (GOOGLE_CONFIG?.SPREADSHEET_URL) {
-        window.open(GOOGLE_CONFIG.SPREADSHEET_URL, '_blank', 'noopener,noreferrer');
-      }
+      document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       showToast('비밀번호가 올바르지 않습니다.');
     }

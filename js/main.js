@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
+  prefetchInquiries();
+  initBoardLinkPrefetch();
   initInquiryBoard();
   initInquiryForm();
   initStatusPage();
@@ -16,6 +18,8 @@ const STATUS_LABELS = {
 const PROJECTS_KEY = 'edgacst_projects';
 const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
+const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
+const INQUIRIES_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
 const DEFAULT_PROJECTS = [
@@ -433,6 +437,7 @@ function initInquiryForm() {
 
       form.reset();
       showToast('문의가 등록되었습니다. 공개게시판에서 확인할 수 있습니다.');
+      setTimeout(() => prefetchInquiries(), 2500);
     } catch {
       showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -499,21 +504,34 @@ function hasScriptConfig() {
   return Boolean(GOOGLE_CONFIG?.SCRIPT_URL);
 }
 
-async function loadInquiries() {
-  const container = document.getElementById('inquiryListContainer');
-  if (!container) return;
+function getInquiryCache(isAdmin) {
+  const raw = sessionStorage.getItem(INQUIRIES_CACHE_KEY) || localStorage.getItem(INQUIRIES_CACHE_KEY);
+  if (!raw) return null;
 
-  if (!hasScriptConfig()) {
-    container.innerHTML = `
-      <tr>
-        <td colspan="5" class="board-error-cell">
-          문의 목록을 표시하려면 Apps Script 웹앱 URL이 필요합니다.
-          <code>js/config.js</code> 의 <code>SCRIPT_URL</code> 을 확인해 주세요.
-        </td>
-      </tr>`;
-    return;
+  try {
+    const cache = JSON.parse(raw);
+    if (!cache?.inquiries || Date.now() - cache.at > INQUIRIES_CACHE_TTL_MS) return null;
+    if (!isAdmin && cache.isAdmin) return null;
+    if (cache.isAdmin === isAdmin) return cache;
+    if (isAdmin && !cache.isAdmin) return cache;
+    return null;
+  } catch {
+    return null;
   }
+}
 
+function setInquiryCache(inquiries, isAdmin) {
+  const payload = JSON.stringify({ inquiries, isAdmin, at: Date.now() });
+  sessionStorage.setItem(INQUIRIES_CACHE_KEY, payload);
+  localStorage.setItem(INQUIRIES_CACHE_KEY, payload);
+}
+
+function clearInquiryCache() {
+  sessionStorage.removeItem(INQUIRIES_CACHE_KEY);
+  localStorage.removeItem(INQUIRIES_CACHE_KEY);
+}
+
+function showBoardLoading(container) {
   container.innerHTML = `
     <tr>
       <td colspan="5" class="board-loading-cell">
@@ -521,27 +539,76 @@ async function loadInquiries() {
         문의 목록을 불러오는 중...
       </td>
     </tr>`;
+}
+
+function showBoardError(container, message) {
+  container.innerHTML = `
+    <tr>
+      <td colspan="5" class="board-error-cell">${message}</td>
+    </tr>`;
+}
+
+async function fetchInquiriesFromApi(isAdmin) {
+  const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
+  url.searchParams.set('action', 'list');
+  if (isAdmin) {
+    url.searchParams.set('token', getAdminPassword());
+  }
+
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error(data.error || 'load failed');
+  }
+
+  return data.inquiries || [];
+}
+
+function prefetchInquiries() {
+  if (!hasScriptConfig()) return Promise.resolve();
+
+  const isAdmin = isAdminLoggedIn();
+  if (getInquiryCache(isAdmin)) return Promise.resolve();
+
+  return fetchInquiriesFromApi(isAdmin)
+    .then(inquiries => setInquiryCache(inquiries, isAdmin))
+    .catch(() => {});
+}
+
+function initBoardLinkPrefetch() {
+  document.querySelectorAll('a[href="board.html"], a[href="./board.html"]').forEach(link => {
+    link.addEventListener('mouseenter', prefetchInquiries, { once: false });
+    link.addEventListener('focus', prefetchInquiries, { once: false });
+  });
+}
+
+async function loadInquiries(options = {}) {
+  const { forceRefresh = false } = options;
+  const container = document.getElementById('inquiryListContainer');
+  if (!container) return;
+
+  if (!hasScriptConfig()) {
+    showBoardError(container, '문의 목록을 표시하려면 Apps Script 웹앱 URL이 필요합니다. <code>js/config.js</code> 의 <code>SCRIPT_URL</code> 을 확인해 주세요.');
+    return;
+  }
+
+  const isAdmin = isAdminLoggedIn();
+  const cache = !forceRefresh ? getInquiryCache(isAdmin) : null;
+
+  if (cache) {
+    renderInquiryList(cache.inquiries);
+  } else {
+    showBoardLoading(container);
+  }
 
   try {
-    const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
-    url.searchParams.set('action', 'list');
-    if (isAdminLoggedIn()) {
-      url.searchParams.set('token', getAdminPassword());
-    }
-
-    const res = await fetch(url.toString());
-    const data = await res.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'load failed');
-    }
-
-    renderInquiryList(data.inquiries || []);
+    const inquiries = await fetchInquiriesFromApi(isAdmin);
+    setInquiryCache(inquiries, isAdmin);
+    renderInquiryList(inquiries);
   } catch {
-    container.innerHTML = `
-      <tr>
-        <td colspan="5" class="board-error-cell">문의 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.</td>
-      </tr>`;
+    if (!cache) {
+      showBoardError(container, '문의 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+    }
   }
 }
 
@@ -689,8 +756,9 @@ async function deleteInquiry(btn) {
       throw new Error(data.error || 'delete failed');
     }
 
+    clearInquiryCache();
     showToast('문의가 삭제되었습니다.');
-    loadInquiries();
+    loadInquiries({ forceRefresh: true });
   } catch {
     showToast('문의 삭제에 실패했습니다.');
   } finally {
@@ -740,8 +808,9 @@ async function submitInquiryReply(btn) {
       throw new Error(data.error || 'reply failed');
     }
 
+    clearInquiryCache();
     showToast('답변이 등록되었습니다.');
-    loadInquiries();
+    loadInquiries({ forceRefresh: true });
   } catch {
     showToast('답변 등록에 실패했습니다.');
   } finally {

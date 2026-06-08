@@ -80,6 +80,14 @@ function doGet(e) {
     const params = e.parameter || {};
     const action = params.action || 'list';
 
+    if (action === 'health') {
+      return json_({
+        success: true,
+        version: 2,
+        features: ['list', 'projects', 'reply', 'delete', 'project-save', 'project-delete']
+      });
+    }
+
     if (action === 'list') {
       return json_(listInquiries_(params.token === ADMIN_TOKEN));
     }

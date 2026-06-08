@@ -113,7 +113,7 @@ async function loadProjects() {
     const message = String(err?.message || '');
     const emptyText = statusEmpty.querySelector('p');
     if (message.includes('unknown action')) {
-      emptyText.textContent = '업무 API가 배포되지 않았습니다. 스프레드시트 → Apps Script에서 Code.gs를 저장한 뒤, 기존 웹앱 배포를 「새 버전」으로 다시 배포해 주세요.';
+      emptyText.innerHTML = '업무 API가 아직 반영되지 않았습니다.<br>① Apps Script Code.gs에 <code>action === \'projects\'</code> 가 있는지 확인<br>② <strong>배포 → 배포 관리</strong>에서 웹앱 URL이 <code>config.js</code>의 SCRIPT_URL과 같은지 확인<br>③ 같지 않으면 <strong>새 배포</strong> 후 URL을 <code>js/config.js</code>에 넣기<br>④ 배포 확인: <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=health" target="_blank" rel="noopener">health</a> · <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=projects" target="_blank" rel="noopener">projects</a>';
     } else if (message) {
       emptyText.textContent = `업무 현황을 불러오지 못했습니다. (${message})`;
     } else {

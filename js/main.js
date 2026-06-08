@@ -378,9 +378,15 @@ function initInquiryBoard() {
   });
 
   document.getElementById('inquiryListContainer')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.inquiry-reply-btn');
-    if (!btn) return;
-    submitInquiryReply(btn);
+    const replyBtn = e.target.closest('.inquiry-reply-btn');
+    if (replyBtn) {
+      submitInquiryReply(replyBtn);
+      return;
+    }
+    const deleteBtn = e.target.closest('.inquiry-delete-btn');
+    if (deleteBtn) {
+      deleteInquiry(deleteBtn);
+    }
   });
 
   updateInquiryAdminUI();
@@ -421,8 +427,7 @@ function initInquiryForm() {
       });
 
       form.reset();
-      showToast('문의가 등록되었습니다.');
-      setTimeout(() => loadInquiries(), 2500);
+      showToast('문의가 등록되었습니다. 공개게시판에서 확인할 수 있습니다.');
     } catch {
       showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -459,8 +464,7 @@ function initInquiryAdminBtn() {
         loadInquiries();
         return;
       }
-      const url = GOOGLE_CONFIG?.SPREADSHEET_URL;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      location.href = 'board.html';
     });
   });
   updateInquiryAdminBtn();
@@ -562,7 +566,10 @@ function renderInquiryItem(item, admin) {
         <div class="inquiry-reply-form">
           <label class="inquiry-reply-form-label">답변 작성</label>
           <textarea class="inquiry-reply-input" rows="3" data-row="${item.row}" placeholder="답변 내용을 입력하세요">${escapeHtml(item.reply || '')}</textarea>
-          <button type="button" class="btn btn-primary btn-sm inquiry-reply-btn" data-row="${item.row}">답변 등록</button>
+          <div class="inquiry-admin-actions">
+            <button type="button" class="btn btn-primary btn-sm inquiry-reply-btn" data-row="${item.row}">답변 등록</button>
+            <button type="button" class="btn btn-danger btn-sm inquiry-delete-btn" data-row="${item.row}">삭제</button>
+          </div>
         </div>
       </div>`
     : '';
@@ -581,6 +588,51 @@ function renderInquiryItem(item, admin) {
       ${replyHtml}
       ${adminBlock}
     </article>`;
+}
+
+async function deleteInquiry(btn) {
+  if (!isAdminLoggedIn()) {
+    showToast('관리자 로그인이 필요합니다.');
+    return;
+  }
+
+  if (!hasScriptConfig()) {
+    showToast('SCRIPT_URL 이 설정되지 않았습니다.');
+    return;
+  }
+
+  const row = btn.dataset.row;
+  const subject = btn.closest('.inquiry-item')?.querySelector('.inquiry-item-subject')?.textContent || '이 문의';
+  if (!confirm(`「${subject}」 문의를 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) {
+    return;
+  }
+
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(GOOGLE_CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'delete',
+        token: getAdminPassword(),
+        row: Number(row)
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'delete failed');
+    }
+
+    showToast('문의가 삭제되었습니다.');
+    loadInquiries();
+  } catch {
+    showToast('문의 삭제에 실패했습니다.');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function submitInquiryReply(btn) {

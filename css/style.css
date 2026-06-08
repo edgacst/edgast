@@ -1080,6 +1080,28 @@ body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.inquiry-admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  color: #fff;
+  background: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.page-hero .page-desc a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
 /* Footer */
 .footer {
   background: #0f172a;

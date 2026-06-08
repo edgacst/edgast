@@ -92,6 +92,10 @@ function doPost(e) {
       return handleReply_(data);
     }
 
+    if (data.action === 'delete') {
+      return handleDelete_(data);
+    }
+
     return json_({ success: false, error: 'invalid action' });
   } catch (err) {
     return json_({ success: false, error: String(err) });
@@ -144,6 +148,27 @@ function handleReply_(data) {
   const sheet = getResponseSheet_();
   const replyCol = getReplyColumn_(sheet);
   sheet.getRange(row, replyCol).setValue(String(data.reply || '').trim());
+  backupInquiries_();
+
+  return json_({ success: true });
+}
+
+function handleDelete_(data) {
+  if (data.token !== ADMIN_TOKEN) {
+    return json_({ success: false, error: 'unauthorized' });
+  }
+
+  const row = Number(data.row);
+  if (!row || row < 2) {
+    return json_({ success: false, error: 'invalid row' });
+  }
+
+  const sheet = getResponseSheet_();
+  if (row > sheet.getLastRow()) {
+    return json_({ success: false, error: 'row not found' });
+  }
+
+  sheet.deleteRow(row);
   backupInquiries_();
 
   return json_({ success: true });

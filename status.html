@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <script src="js/https-redirect.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="(주)에드가씨에스티 개발 업무현황">
   <title>개발 업무현황 | edgacst</title>
@@ -42,10 +44,7 @@
 
     <section class="section status">
       <div class="container">
-        <div class="status-toolbar">
-          <p class="status-updated" id="statusUpdated"></p>
-          <button type="button" class="btn btn-admin" id="adminLoginBtn">관리자</button>
-        </div>
+        <p class="status-updated" id="statusUpdated"></p>
 
         <div class="admin-panel hidden" id="adminPanel">
           <div class="admin-panel-header">
@@ -147,7 +146,6 @@
           <label for="adminPassword">비밀번호</label>
           <input type="password" id="adminPassword" required placeholder="관리자 비밀번호">
         </div>
-        <p class="modal-hint">초기 비밀번호: edgacst2026</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-outline-dark" id="loginCancelBtn">취소</button>
           <button type="submit" class="btn btn-primary">로그인</button>
@@ -167,6 +165,7 @@
         <p>사업자번호 : 634-81-02760</p>
         <p>통신판매업 : 제 2026-부천원미-0446 호</p>
       </div>
+      <button type="button" class="footer-admin-btn" id="adminLoginBtn">관리자</button>
       <p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p>
     </div>
   </footer>

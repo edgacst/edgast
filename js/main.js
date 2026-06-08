@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initInquiryForm();
   initStatusPage();
+  initFooterAdmin();
 });
 
 const STATUS_LABELS = {
@@ -14,7 +15,7 @@ const STATUS_LABELS = {
 const PROJECTS_KEY = 'edgacst_projects';
 const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
-const DEFAULT_ADMIN_PASSWORD = 'edgacst2026';
+const DEFAULT_ADMIN_PASSWORD = '1324';
 
 const DEFAULT_PROJECTS = [
   {
@@ -54,9 +55,7 @@ function seedProjectsIfEmpty() {
   if (!localStorage.getItem(PROJECTS_KEY)) {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(DEFAULT_PROJECTS));
   }
-  if (!localStorage.getItem(ADMIN_PASSWORD_KEY)) {
-    localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
-  }
+  localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
 }
 
 function getProjects() {
@@ -170,6 +169,23 @@ function updateStatusStats(projects) {
   if (statDone) statDone.textContent = counts.done;
 }
 
+function initFooterAdmin() {
+  document.querySelectorAll('.footer-admin-btn[data-admin-link]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      location.href = `${btn.dataset.adminLink}?admin=1`;
+    });
+  });
+}
+
+function handleAdminLoginClick() {
+  if (isAdminLoggedIn()) {
+    document.getElementById('adminPanel')?.classList.remove('hidden');
+    document.getElementById('adminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    openLoginModal();
+  }
+}
+
 function initStatusAdmin() {
   const adminLoginBtn = document.getElementById('adminLoginBtn');
   const adminLogoutBtn = document.getElementById('adminLogoutBtn');
@@ -183,14 +199,11 @@ function initStatusAdmin() {
 
   updateAdminUI();
 
-  adminLoginBtn?.addEventListener('click', () => {
-    if (isAdminLoggedIn()) {
-      adminPanel?.classList.remove('hidden');
-      adminPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      openLoginModal();
-    }
-  });
+  adminLoginBtn?.addEventListener('click', handleAdminLoginClick);
+
+  if (new URLSearchParams(location.search).get('admin') === '1') {
+    handleAdminLoginClick();
+  }
 
   adminLogoutBtn?.addEventListener('click', () => {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);

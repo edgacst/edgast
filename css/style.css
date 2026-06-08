@@ -740,6 +740,34 @@ body {
   border-radius: var(--radius-lg);
 }
 
+.status-board-table .board-th-num {
+  width: 72px;
+}
+
+.status-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.status-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.status-detail-progress .progress-bar {
+  max-width: 220px;
+}
+
+.status .board-panel-desc {
+  margin-bottom: 12px;
+  color: var(--color-text-light);
+  font-size: 0.92rem;
+}
+
 .status-table {
   width: 100%;
   border-collapse: collapse;

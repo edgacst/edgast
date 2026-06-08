@@ -2,7 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initHeroVideo();
   prefetchInquiries();
+  prefetchProjects();
   initBoardLinkPrefetch();
+  initStatusLinkPrefetch();
   initInquiryBoard();
   initInquiryForm();
   initStatusPage();
@@ -19,6 +21,7 @@ const STATUS_LABELS = {
 const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
 const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
+const PROJECTS_CACHE_KEY = 'edgacst_projects_cache';
 const INQUIRIES_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
@@ -30,6 +33,26 @@ function initStatusPage() {
 
   localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
   initStatusAdmin();
+
+  tbody.addEventListener('click', (e) => {
+    const titleBtn = e.target.closest('.board-title-btn');
+    if (titleBtn) {
+      toggleBoardRow(titleBtn);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      startEditProject(editBtn.dataset.edit);
+      return;
+    }
+
+    const deleteBtn = e.target.closest('[data-delete]');
+    if (deleteBtn) {
+      deleteProject(Number(deleteBtn.dataset.delete));
+    }
+  });
+
   loadProjects();
 }
 
@@ -74,13 +97,15 @@ async function migrateLocalProjectsIfNeeded() {
 
     localStorage.removeItem('edgacst_projects');
     showToast('브라우저에 저장된 업무를 스프레드시트로 옮겼습니다.');
-    await loadProjects();
+    clearProjectCache();
+    await loadProjects({ forceRefresh: true });
   } catch {
     // 마이그레이션 실패 시 조용히 무시
   }
 }
 
-async function loadProjects() {
+async function loadProjects(options = {}) {
+  const { forceRefresh = false } = options;
   const tbody = document.getElementById('statusTableBody');
   const statusEmpty = document.getElementById('statusEmpty');
   if (!tbody) return;
@@ -92,16 +117,24 @@ async function loadProjects() {
     return;
   }
 
+  if (!forceRefresh) {
+    const cached = getProjectCache();
+    if (cached) {
+      statusProjects = cached;
+      renderStatusTable();
+      if (isAdminLoggedIn()) {
+        migrateLocalProjectsIfNeeded();
+      }
+      return;
+    }
+  }
+
   statusEmpty?.classList.add('hidden');
-  tbody.innerHTML = '<tr><td colspan="7" class="board-loading-cell">업무 현황을 불러오는 중...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="2" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
 
   try {
-    const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
-    url.searchParams.set('action', 'projects');
-    const res = await fetch(url.toString(), { redirect: 'follow' });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'load failed');
-    statusProjects = data.projects || [];
+    statusProjects = await fetchProjectsFromApi();
+    setProjectCache(statusProjects);
     renderStatusTable();
     if (isAdminLoggedIn()) {
       migrateLocalProjectsIfNeeded();
@@ -134,15 +167,9 @@ function getAdminPassword() {
 function renderStatusTable() {
   const tbody = document.getElementById('statusTableBody');
   const statusEmpty = document.getElementById('statusEmpty');
-  const adminColHeader = document.getElementById('adminColHeader');
   const statusUpdated = document.getElementById('statusUpdated');
   const isAdmin = isAdminLoggedIn();
-
   const projects = getProjects();
-
-  if (adminColHeader) {
-    adminColHeader.classList.toggle('hidden', !isAdmin);
-  }
 
   if (projects.length === 0) {
     tbody.innerHTML = '';
@@ -163,44 +190,69 @@ function renderStatusTable() {
     statusUpdated.textContent = `최종 업데이트: ${formatDateTime(latestUpdate)}`;
   }
 
-  tbody.innerHTML = projects.map(p => `
-    <tr>
-      <td>
-        <strong>${escapeHtml(p.name)}</strong>
-        ${p.content ? `<div class="status-content-cell">${linkifyText(p.content)}</div>` : ''}
+  tbody.innerHTML = projects.map((p, index) => renderProjectItem(p, isAdmin, projects.length - index)).join('');
+  updateStatusStats(projects);
+}
+
+function renderProjectItem(project, isAdmin, number) {
+  const name = escapeHtml(project.name || '(제목 없음)');
+  const adminBlock = isAdmin
+    ? `<div class="inquiry-item-admin">
+        <div class="board-detail-label">관리</div>
+        <div class="admin-actions">
+          <button type="button" class="btn-sm btn-edit" data-edit="${project.id}">수정</button>
+          <button type="button" class="btn-sm btn-delete" data-delete="${project.row}">삭제</button>
+        </div>
+      </div>`
+    : '';
+
+  return `
+    <tr class="board-row" data-id="${project.id}">
+      <td class="board-td-num">${number}</td>
+      <td class="board-td-subject">
+        <button type="button" class="board-title-btn" aria-expanded="false">
+          <span class="board-subject-text">${name}</span>
+        </button>
       </td>
-      <td>${escapeHtml(p.assignee)}</td>
-      <td>${escapeHtml(p.start)}</td>
-      <td>${escapeHtml(p.end)}</td>
-      <td>
-        <div class="progress-bar">
-          <div class="progress-track">
-            <div class="progress-fill" style="width: ${p.progress}%"></div>
+    </tr>
+    <tr class="board-detail-row" data-id="${project.id}">
+      <td colspan="2">
+        <div class="board-detail">
+          <div class="status-detail-grid">
+            <div class="status-detail-item">
+              <span class="board-detail-label">담당</span>
+              <span>${escapeHtml(project.assignee)}</span>
+            </div>
+            <div class="status-detail-item">
+              <span class="board-detail-label">시작일</span>
+              <span>${escapeHtml(project.start)}</span>
+            </div>
+            <div class="status-detail-item">
+              <span class="board-detail-label">목표일</span>
+              <span>${escapeHtml(project.end)}</span>
+            </div>
+            <div class="status-detail-item">
+              <span class="board-detail-label">상태</span>
+              <span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span>
+            </div>
+            <div class="status-detail-item status-detail-progress">
+              <span class="board-detail-label">진행률</span>
+              <div class="progress-bar">
+                <div class="progress-track">
+                  <div class="progress-fill" style="width: ${project.progress}%"></div>
+                </div>
+                <span class="progress-text">${project.progress}%</span>
+              </div>
+            </div>
           </div>
-          <span class="progress-text">${p.progress}%</span>
+          <div class="board-detail-block">
+            <div class="board-detail-label">개발 내용</div>
+            <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
+          </div>
+          ${adminBlock}
         </div>
       </td>
-      <td><span class="status-badge ${p.status}">${STATUS_LABELS[p.status]}</span></td>
-      ${isAdmin ? `
-        <td class="col-admin">
-          <div class="admin-actions">
-            <button type="button" class="btn-sm btn-edit" data-edit="${p.id}">수정</button>
-            <button type="button" class="btn-sm btn-delete" data-delete="${p.row}">삭제</button>
-          </div>
-        </td>
-      ` : ''}
-    </tr>
-  `).join('');
-
-  updateStatusStats(projects);
-
-  tbody.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', () => startEditProject(btn.dataset.edit));
-  });
-
-  tbody.querySelectorAll('[data-delete]').forEach(btn => {
-    btn.addEventListener('click', () => deleteProject(Number(btn.dataset.delete)));
-  });
+    </tr>`;
 }
 
 function updateStatusStats(projects) {
@@ -356,7 +408,8 @@ async function saveProjectFromForm() {
 
     if (!data.success) throw new Error(data.error || 'save failed');
 
-    await loadProjects();
+    clearProjectCache();
+    await loadProjects({ forceRefresh: true });
     resetProjectForm();
     showToast(isEdit ? '업무가 수정되었습니다.' : '업무가 등록되었습니다.');
   } catch {
@@ -404,7 +457,8 @@ async function deleteProject(row) {
 
     if (!data.success) throw new Error(data.error || 'delete failed');
 
-    await loadProjects();
+    clearProjectCache();
+    await loadProjects({ forceRefresh: true });
     showToast('업무가 삭제되었습니다.');
   } catch {
     showToast('업무 삭제에 실패했습니다.');
@@ -627,6 +681,57 @@ function setInquiryCache(inquiries, isAdmin) {
 function clearInquiryCache() {
   sessionStorage.removeItem(INQUIRIES_CACHE_KEY);
   localStorage.removeItem(INQUIRIES_CACHE_KEY);
+}
+
+function getProjectCache() {
+  const raw = sessionStorage.getItem(PROJECTS_CACHE_KEY) || localStorage.getItem(PROJECTS_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    const cache = JSON.parse(raw);
+    if (!cache?.projects || Date.now() - cache.at > INQUIRIES_CACHE_TTL_MS) return null;
+    return cache.projects;
+  } catch {
+    return null;
+  }
+}
+
+function setProjectCache(projects) {
+  const payload = JSON.stringify({ projects, at: Date.now() });
+  sessionStorage.setItem(PROJECTS_CACHE_KEY, payload);
+  localStorage.setItem(PROJECTS_CACHE_KEY, payload);
+}
+
+function clearProjectCache() {
+  sessionStorage.removeItem(PROJECTS_CACHE_KEY);
+  localStorage.removeItem(PROJECTS_CACHE_KEY);
+}
+
+async function fetchProjectsFromApi() {
+  const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
+  url.searchParams.set('action', 'projects');
+  const res = await fetch(url.toString(), { redirect: 'follow' });
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error(data.error || 'load failed');
+  }
+  return data.projects || [];
+}
+
+function prefetchProjects() {
+  if (!hasScriptConfig()) return Promise.resolve();
+  if (getProjectCache()) return Promise.resolve();
+
+  return fetchProjectsFromApi()
+    .then(projects => setProjectCache(projects))
+    .catch(() => {});
+}
+
+function initStatusLinkPrefetch() {
+  document.querySelectorAll('a[href="status.html"], a[href="./status.html"]').forEach(link => {
+    link.addEventListener('mouseenter', prefetchProjects, { once: false });
+    link.addEventListener('focus', prefetchProjects, { once: false });
+  });
 }
 
 function showBoardLoading(container) {

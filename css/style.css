@@ -839,6 +839,12 @@ body {
   margin-left: 0;
 }
 
+.board-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
 .inquiry-board {
   padding-bottom: 24px;
 }

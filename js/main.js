@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
-  initInquiryPage();
+  initInquiryBoard();
+  initInquiryForm();
   initStatusPage();
   initFooterAdmin();
 });
@@ -363,9 +364,8 @@ function initMobileMenu() {
   });
 }
 
-function initInquiryPage() {
-  const form = document.getElementById('inquiryForm');
-  if (!form) return;
+function initInquiryBoard() {
+  if (!document.getElementById('inquiryListContainer')) return;
 
   document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries());
   document.getElementById('inquiryAdminLoginBtn')?.addEventListener('click', () => openLoginModal());
@@ -377,8 +377,7 @@ function initInquiryPage() {
     showToast('로그아웃되었습니다.');
   });
 
-  const listContainer = document.getElementById('inquiryListContainer');
-  listContainer?.addEventListener('click', (e) => {
+  document.getElementById('inquiryListContainer')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.inquiry-reply-btn');
     if (!btn) return;
     submitInquiryReply(btn);
@@ -386,6 +385,12 @@ function initInquiryPage() {
 
   updateInquiryAdminUI();
   loadInquiries();
+  initInquiryLogin();
+}
+
+function initInquiryForm() {
+  const form = document.getElementById('inquiryForm');
+  if (!form) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -425,8 +430,6 @@ function initInquiryPage() {
       submitBtn.textContent = '문의 등록';
     }
   });
-
-  initInquiryLogin();
 }
 
 function hasGoogleFormConfig() {
@@ -636,7 +639,7 @@ function initInquiryLogin() {
   const loginForm = document.getElementById('loginForm');
   const loginCancelBtn = document.getElementById('loginCancelBtn');
   const loginModalBackdrop = document.getElementById('loginModalBackdrop');
-  if (!loginForm || !document.getElementById('inquiryForm')) return;
+  if (!loginForm || !document.getElementById('inquiryListContainer')) return;
 
   if (new URLSearchParams(location.search).get('admin') === '1') {
     openLoginModal();

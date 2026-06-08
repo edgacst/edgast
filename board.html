@@ -5,8 +5,8 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <script src="js/https-redirect.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="(주)에드가씨에스티 문의게시판">
-  <title>문의게시판 | edgacst</title>
+  <meta name="description" content="(주)에드가씨에스티 공개게시판">
+  <title>공개게시판 | edgacst</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,8 +23,8 @@
         <a href="index.html" class="nav-link">홈</a>
         <a href="business.html" class="nav-link">사업영역</a>
         <a href="status.html" class="nav-link">개발 업무현황</a>
-        <a href="board.html" class="nav-link">공개게시판</a>
-        <a href="inquiry.html" class="nav-link active">문의게시판</a>
+        <a href="board.html" class="nav-link active">공개게시판</a>
+        <a href="inquiry.html" class="nav-link">문의게시판</a>
       </nav>
       <button class="menu-toggle" aria-label="메뉴 열기">
         <span></span>
@@ -37,19 +37,22 @@
   <main>
     <section class="page-hero">
       <div class="container">
-        <span class="page-label">Contact</span>
-        <h1 class="page-title">문의게시판</h1>
-        <p class="page-desc">등록된 문의와 답변을 확인하실 수 있습니다. 새 문의는 아래 작성란을 이용해 주세요.</p>
+        <span class="page-label">Board</span>
+        <h1 class="page-title">공개게시판</h1>
+        <p class="page-desc">등록된 문의와 관리자 답변을 누구나 확인할 수 있습니다.</p>
       </div>
     </section>
 
     <section class="section inquiry-board">
       <div class="container">
+        <div class="board-toolbar">
+          <a href="inquiry.html" class="btn btn-primary btn-sm">문의 작성하기</a>
+        </div>
         <div class="inquiry-list" id="inquiryListSection">
           <div class="inquiry-list-header">
             <div>
-              <h2 class="list-title">문의 게시판</h2>
-              <p class="list-desc">모든 방문자가 문의와 답변을 확인할 수 있습니다.</p>
+              <h2 class="list-title">문의 목록</h2>
+              <p class="list-desc">이름은 일부만 표시되며, 연락처는 공개되지 않습니다.</p>
             </div>
             <div class="inquiry-list-actions">
               <button type="button" class="btn btn-outline-dark btn-sm" id="inquiryRefreshBtn">새로고침</button>
@@ -61,65 +64,6 @@
           <div id="inquiryListContainer">
             <p class="list-loading">문의 목록을 불러오는 중...</p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section inquiry inquiry-write">
-      <div class="container">
-        <h2 class="section-subtitle">문의 작성</h2>
-        <div class="inquiry-layout">
-          <form class="inquiry-form" id="inquiryForm">
-            <div class="form-group">
-              <label for="name">이름 <span class="required">*</span></label>
-              <input type="text" id="name" name="name" required placeholder="이름을 입력해 주세요">
-            </div>
-            <div class="form-group">
-              <label for="email">이메일 <span class="required">*</span></label>
-              <input type="email" id="email" name="email" required placeholder="example@email.com">
-            </div>
-            <div class="form-group">
-              <label for="phone">연락처 <span class="required">*</span></label>
-              <input type="tel" id="phone" name="phone" required placeholder="010-0000-0000">
-            </div>
-            <div class="form-group">
-              <label for="subject">제목 <span class="required">*</span></label>
-              <input type="text" id="subject" name="subject" required placeholder="문의 제목을 입력해 주세요">
-            </div>
-            <div class="form-group">
-              <label for="message">내용 <span class="required">*</span></label>
-              <textarea id="message" name="message" rows="6" required placeholder="문의 내용을 입력해 주세요"></textarea>
-            </div>
-            <div class="form-group form-checkbox">
-              <label>
-                <input type="checkbox" id="privacy" name="privacy" required>
-                <span>개인정보 수집 및 이용에 동의합니다. <span class="required">*</span></span>
-              </label>
-            </div>
-            <button type="submit" class="btn btn-primary btn-full">문의 등록</button>
-          </form>
-
-          <aside class="inquiry-sidebar">
-            <div class="sidebar-card">
-              <h3>문의 안내</h3>
-              <ul>
-                <li>영업일 기준 1~2일 이내 답변 드립니다.</li>
-                <li>긴급한 문의는 전화로 연락해 주세요.</li>
-                <li>개인정보는 문의 처리 목적으로만 사용됩니다.</li>
-              </ul>
-            </div>
-            <div class="sidebar-card">
-              <h3>회사 정보</h3>
-              <dl>
-                <dt>회사명</dt>
-                <dd>(주)에드가씨에스티 · 010-8447-9973</dd>
-                <dt>주소</dt>
-                <dd>경기도 부천시 상동 457</dd>
-                <dt>사업자번호</dt>
-                <dd>634-81-02760</dd>
-              </dl>
-            </div>
-          </aside>
         </div>
       </div>
     </section>

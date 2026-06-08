@@ -45,23 +45,35 @@
     <section class="section inquiry">
       <div class="container">
         <div class="inquiry-layout">
-          <div class="inquiry-form-area">
-            <div class="google-form-wrap hidden" id="googleFormWrap">
-              <iframe
-                id="googleFormFrame"
-                title="문의하기"
-                frameborder="0"
-                marginheight="0"
-                marginwidth="0"
-                loading="lazy"
-                allowfullscreen>
-              </iframe>
+          <form class="inquiry-form" id="inquiryForm">
+            <div class="form-group">
+              <label for="name">이름 <span class="required">*</span></label>
+              <input type="text" id="name" name="name" required placeholder="이름을 입력해 주세요">
             </div>
-            <div class="form-setup-notice" id="formSetupNotice">
-              <h3>문의 폼 연결 준비 중</h3>
-              <p>Google Form 주소를 <code>js/config.js</code> 에 입력하면 문의 폼이 표시됩니다.</p>
+            <div class="form-group">
+              <label for="email">이메일 <span class="required">*</span></label>
+              <input type="email" id="email" name="email" required placeholder="example@email.com">
             </div>
-          </div>
+            <div class="form-group">
+              <label for="phone">연락처 <span class="required">*</span></label>
+              <input type="tel" id="phone" name="phone" required placeholder="010-0000-0000">
+            </div>
+            <div class="form-group">
+              <label for="subject">제목 <span class="required">*</span></label>
+              <input type="text" id="subject" name="subject" required placeholder="문의 제목을 입력해 주세요">
+            </div>
+            <div class="form-group">
+              <label for="message">내용 <span class="required">*</span></label>
+              <textarea id="message" name="message" rows="6" required placeholder="문의 내용을 입력해 주세요"></textarea>
+            </div>
+            <div class="form-group form-checkbox">
+              <label>
+                <input type="checkbox" id="privacy" name="privacy" required>
+                <span>개인정보 수집 및 이용에 동의합니다. <span class="required">*</span></span>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">문의 등록</button>
+          </form>
 
           <aside class="inquiry-sidebar">
             <div class="sidebar-card">
@@ -89,6 +101,23 @@
     </section>
   </main>
 
+  <div class="modal hidden" id="loginModal">
+    <div class="modal-backdrop" id="loginModalBackdrop"></div>
+    <div class="modal-content">
+      <h2 class="modal-title">관리자 로그인</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="adminPassword">비밀번호</label>
+          <input type="password" id="adminPassword" required placeholder="관리자 비밀번호">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline-dark" id="loginCancelBtn">취소</button>
+          <button type="submit" class="btn btn-primary">로그인</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
@@ -100,7 +129,7 @@
         <p>사업자번호 : 634-81-02760</p>
         <p>통신판매업 : 제 2026-부천원미-0446 호</p>
       </div>
-      <a href="https://docs.google.com/spreadsheets/d/1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI/edit" target="_blank" rel="noopener noreferrer" class="footer-admin-btn" id="inquiryAdminLink">문의 확인</a>
+      <button type="button" class="footer-admin-btn hidden" id="inquiryAdminBtn">문의 확인</button>
       <p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p>
     </div>
   </footer>

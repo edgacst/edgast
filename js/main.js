@@ -170,11 +170,7 @@ function updateStatusStats(projects) {
 }
 
 function initFooterAdmin() {
-  const sheetUrl = (typeof GOOGLE_CONFIG !== 'undefined' && GOOGLE_CONFIG.SPREADSHEET_URL) || '';
-  const inquiryLink = document.getElementById('inquiryAdminLink');
-  if (inquiryLink && sheetUrl) {
-    inquiryLink.href = sheetUrl;
-  }
+  initInquiryAdminBtn();
 }
 
 function handleAdminLoginClick() {
@@ -209,6 +205,7 @@ function initStatusAdmin() {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     resetProjectForm();
     updateAdminUI();
+    updateInquiryAdminBtn();
     renderStatusTable();
     showToast('로그아웃되었습니다.');
   });
@@ -221,8 +218,13 @@ function initStatusAdmin() {
       closeLoginModal();
       updateAdminUI();
       renderStatusTable();
+      updateInquiryAdminBtn();
       showToast('관리자 로그인되었습니다.');
-      adminPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (adminPanel) {
+        adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (GOOGLE_CONFIG?.SPREADSHEET_URL) {
+        window.open(GOOGLE_CONFIG.SPREADSHEET_URL, '_blank', 'noopener,noreferrer');
+      }
     } else {
       showToast('비밀번호가 올바르지 않습니다.');
     }
@@ -358,18 +360,108 @@ function initMobileMenu() {
 }
 
 function initInquiryPage() {
-  const formWrap = document.getElementById('googleFormWrap');
-  const formFrame = document.getElementById('googleFormFrame');
-  const setupNotice = document.getElementById('formSetupNotice');
-  if (!formWrap || !formFrame) return;
+  const form = document.getElementById('inquiryForm');
+  if (!form) return;
 
-  const embedUrl = (typeof GOOGLE_CONFIG !== 'undefined' && GOOGLE_CONFIG.FORM_EMBED_URL) || '';
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-  if (embedUrl) {
-    formFrame.src = embedUrl;
-    formWrap.classList.remove('hidden');
-    setupNotice?.classList.add('hidden');
+    if (!hasGoogleFormConfig()) {
+      showToast('문의 연동이 설정되지 않았습니다.');
+      return;
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
+
+    try {
+      const params = new URLSearchParams();
+      const entries = GOOGLE_CONFIG.FORM_ENTRIES;
+      params.append(entries.name, form.name.value.trim());
+      params.append(entries.email, form.email.value.trim());
+      params.append(entries.phone, form.phone.value.trim());
+      params.append(entries.subject, form.subject.value.trim());
+      params.append(entries.message, form.message.value.trim());
+
+      await fetch(GOOGLE_CONFIG.FORM_ACTION_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      });
+
+      form.reset();
+      showToast('문의가 등록되었습니다.');
+    } catch {
+      showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '문의 등록';
+    }
+  });
+
+  initInquiryLogin();
+}
+
+function hasGoogleFormConfig() {
+  if (typeof GOOGLE_CONFIG === 'undefined') return false;
+  const entries = GOOGLE_CONFIG.FORM_ENTRIES || {};
+  return Boolean(
+    GOOGLE_CONFIG.FORM_ACTION_URL &&
+    entries.name &&
+    entries.email &&
+    entries.subject &&
+    entries.message
+  );
+}
+
+function updateInquiryAdminBtn() {
+  document.querySelectorAll('#inquiryAdminBtn').forEach(btn => {
+    btn.classList.toggle('hidden', !isAdminLoggedIn());
+  });
+}
+
+function initInquiryAdminBtn() {
+  document.querySelectorAll('#inquiryAdminBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (isAdminLoggedIn()) {
+        const url = GOOGLE_CONFIG?.SPREADSHEET_URL;
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    });
+  });
+  updateInquiryAdminBtn();
+}
+
+function initInquiryLogin() {
+  const loginForm = document.getElementById('loginForm');
+  const loginCancelBtn = document.getElementById('loginCancelBtn');
+  const loginModalBackdrop = document.getElementById('loginModalBackdrop');
+  if (!loginForm || !document.getElementById('inquiryForm')) return;
+
+  if (new URLSearchParams(location.search).get('admin') === '1') {
+    openLoginModal();
   }
+
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const password = document.getElementById('adminPassword').value;
+    if (password === getAdminPassword()) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      closeLoginModal();
+      updateInquiryAdminBtn();
+      showToast('관리자 로그인되었습니다.');
+      if (GOOGLE_CONFIG?.SPREADSHEET_URL) {
+        window.open(GOOGLE_CONFIG.SPREADSHEET_URL, '_blank', 'noopener,noreferrer');
+      }
+    } else {
+      showToast('비밀번호가 올바르지 않습니다.');
+    }
+  });
+
+  loginCancelBtn?.addEventListener('click', closeLoginModal);
+  loginModalBackdrop?.addEventListener('click', closeLoginModal);
 }
 
 function escapeHtml(text) {

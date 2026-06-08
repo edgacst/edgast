@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="(주)에드가씨에스티 개발 업무현황">
+  <title>개발 업무현황 | edgacst</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <span class="logo-en">edgacst</span>
+        <span class="logo-ko">(주)에드가씨에스티</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html" class="nav-link">홈</a>
+        <a href="business.html" class="nav-link">사업영역</a>
+        <a href="status.html" class="nav-link active">개발 업무현황</a>
+        <a href="inquiry.html" class="nav-link">문의게시판</a>
+      </nav>
+      <button class="menu-toggle" aria-label="메뉴 열기">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <span class="page-label">Status</span>
+        <h1 class="page-title">개발 업무현황</h1>
+        <p class="page-desc">현재 진행 중인 개발 프로젝트 현황을 확인할 수 있습니다.</p>
+      </div>
+    </section>
+
+    <section class="section status">
+      <div class="container">
+        <div class="status-summary">
+          <div class="status-stat">
+            <span class="status-stat-num" id="statTotal">0</span>
+            <span class="status-stat-label">전체</span>
+          </div>
+          <div class="status-stat">
+            <span class="status-stat-num" id="statProgress">0</span>
+            <span class="status-stat-label">진행중</span>
+          </div>
+          <div class="status-stat">
+            <span class="status-stat-num" id="statReview">0</span>
+            <span class="status-stat-label">검수중</span>
+          </div>
+          <div class="status-stat">
+            <span class="status-stat-num" id="statDone">0</span>
+            <span class="status-stat-label">완료</span>
+          </div>
+        </div>
+
+        <div class="status-table-wrap">
+          <table class="status-table">
+            <thead>
+              <tr>
+                <th>프로젝트명</th>
+                <th>담당</th>
+                <th>시작일</th>
+                <th>목표일</th>
+                <th>진행률</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="statusTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo">edgacst</span>
+        <span class="footer-company">(주)에드가씨에스티</span>
+      </div>
+      <div class="footer-info">
+        <p>주소 : 경기도 부천시 상동 457</p>
+        <p>사업자번호 : 634-81-02760</p>
+        <p>통신판매업 : 제 2026-부천원미-0446 호</p>
+      </div>
+      <p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

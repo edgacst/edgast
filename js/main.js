@@ -1,7 +1,60 @@
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initInquiryForm();
+  initStatusPage();
 });
+
+const STATUS_LABELS = {
+  progress: '진행중',
+  review: '검수중',
+  done: '완료',
+  waiting: '대기'
+};
+
+const DEFAULT_PROJECTS = [
+  { name: '홈페이지 리뉴얼', assignee: '개발팀', start: '2026-03-01', end: '2026-04-15', progress: 75, status: 'progress' },
+  { name: '고객 관리 시스템', assignee: '개발팀', start: '2026-02-10', end: '2026-05-30', progress: 40, status: 'progress' },
+  { name: '모바일 앱 1차 배포', assignee: '개발팀', start: '2026-01-15', end: '2026-03-20', progress: 90, status: 'review' },
+  { name: 'API 연동 모듈', assignee: '개발팀', start: '2026-04-01', end: '2026-06-30', progress: 0, status: 'waiting' },
+  { name: '내부 업무 포털', assignee: '개발팀', start: '2025-11-01', end: '2026-02-28', progress: 100, status: 'done' }
+];
+
+function initStatusPage() {
+  const tbody = document.getElementById('statusTableBody');
+  if (!tbody) return;
+
+  const projects = DEFAULT_PROJECTS;
+
+  tbody.innerHTML = projects.map(p => `
+    <tr>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.assignee)}</td>
+      <td>${escapeHtml(p.start)}</td>
+      <td>${escapeHtml(p.end)}</td>
+      <td>
+        <div class="progress-bar">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: ${p.progress}%"></div>
+          </div>
+          <span class="progress-text">${p.progress}%</span>
+        </div>
+      </td>
+      <td><span class="status-badge ${p.status}">${STATUS_LABELS[p.status]}</span></td>
+    </tr>
+  `).join('');
+
+  const counts = { total: projects.length, progress: 0, review: 0, done: 0 };
+  projects.forEach(p => {
+    if (p.status === 'progress') counts.progress++;
+    else if (p.status === 'review') counts.review++;
+    else if (p.status === 'done') counts.done++;
+  });
+
+  document.getElementById('statTotal').textContent = counts.total;
+  document.getElementById('statProgress').textContent = counts.progress;
+  document.getElementById('statReview').textContent = counts.review;
+  document.getElementById('statDone').textContent = counts.done;
+}
 
 function initMobileMenu() {
   const toggle = document.querySelector('.menu-toggle');

@@ -530,6 +530,16 @@ body {
   white-space: pre-wrap;
 }
 
+.text-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.text-link:hover {
+  color: var(--color-accent-hover);
+}
+
 .col-admin {
   white-space: nowrap;
 }

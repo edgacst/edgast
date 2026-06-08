@@ -115,7 +115,7 @@ function renderStatusTable() {
     <tr>
       <td>
         <strong>${escapeHtml(p.name)}</strong>
-        ${p.content ? `<div class="status-content-cell">${escapeHtml(p.content)}</div>` : ''}
+        ${p.content ? `<div class="status-content-cell">${linkifyText(p.content)}</div>` : ''}
       </td>
       <td>${escapeHtml(p.assignee)}</td>
       <td>${escapeHtml(p.start)}</td>
@@ -402,7 +402,7 @@ function renderInquiryList() {
         <span class="inquiry-item-date">${escapeHtml(item.date)}</span>
       </div>
       <div class="inquiry-item-meta">${escapeHtml(item.name)} · ${escapeHtml(item.email)}</div>
-      <p class="inquiry-item-message">${escapeHtml(item.message)}</p>
+      <p class="inquiry-item-message">${linkifyText(item.message)}</p>
     </div>
   `).join('');
 }
@@ -411,6 +411,20 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function linkifyText(text) {
+  if (!text) return '';
+
+  const escaped = escapeHtml(text);
+  const urlPattern = /(\bhttps?:\/\/[^\s<>"']+|\bwww\.[^\s<>"']+)/gi;
+
+  return escaped.replace(urlPattern, (url) => {
+    const trimmed = url.replace(/[.,;:!?)]+$/, '');
+    const suffix = url.slice(trimmed.length);
+    const href = trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-link">${trimmed}</a>${suffix}`;
+  });
 }
 
 function showToast(message) {

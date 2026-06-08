@@ -386,6 +386,11 @@ function initInquiryBoard() {
     const deleteBtn = e.target.closest('.inquiry-delete-btn');
     if (deleteBtn) {
       deleteInquiry(deleteBtn);
+      return;
+    }
+    const toggleBtn = e.target.closest('.board-item-toggle');
+    if (toggleBtn) {
+      toggleBoardItem(toggleBtn);
     }
   });
 
@@ -529,40 +534,73 @@ async function loadInquiries() {
   }
 }
 
+function renderBoardStats(inquiries) {
+  const stats = document.getElementById('boardStats');
+  if (!stats) return;
+
+  const answered = inquiries.filter(item => item.reply || item.hasReply).length;
+  stats.innerHTML = `
+    <span class="board-stat">전체 <strong>${inquiries.length}</strong></span>
+    <span class="board-stat answered">답변완료 <strong>${answered}</strong></span>
+    <span class="board-stat waiting">답변대기 <strong>${inquiries.length - answered}</strong></span>`;
+}
+
 function renderInquiryList(inquiries) {
   const container = document.getElementById('inquiryListContainer');
   if (!container) return;
 
   updateInquiryAdminUI();
+  renderBoardStats(inquiries);
 
   if (!inquiries.length) {
-    container.innerHTML = '<p class="list-empty">등록된 문의가 없습니다.</p>';
+    container.innerHTML = `
+      <div class="list-empty board-empty">
+        <p class="board-empty-title">등록된 문의가 없습니다.</p>
+        <p class="board-empty-desc">궁금한 점이 있으시면 문의를 남겨 주세요.</p>
+        <a href="inquiry.html" class="btn btn-primary btn-sm">문의 작성하기</a>
+      </div>`;
     return;
   }
 
   const admin = isAdminLoggedIn();
-  container.innerHTML = `<div class="list-items">${inquiries.map(item => renderInquiryItem(item, admin)).join('')}</div>`;
+  container.innerHTML = `<div class="board-items">${inquiries.map((item, index) => renderInquiryItem(item, admin, inquiries.length - index)).join('')}</div>`;
 }
 
-function renderInquiryItem(item, admin) {
+function toggleBoardItem(btn) {
+  const item = btn.closest('.board-item');
+  const body = item?.querySelector('.board-item-body');
+  if (!item || !body) return;
+
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.board-item.open').forEach(openItem => {
+    if (openItem !== item) {
+      openItem.classList.remove('open');
+      openItem.querySelector('.board-item-toggle')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  item.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+function renderInquiryItem(item, admin, number) {
   const hasReply = Boolean(item.reply || item.hasReply);
+  const subject = escapeHtml(item.subject || '(제목 없음)');
+  const author = escapeHtml(item.name || '익명');
+  const date = escapeHtml(formatInquiryDate(item.date));
+  const initial = author.charAt(0) || '?';
 
   const replyHtml = hasReply
-    ? `<div class="inquiry-item-reply">
-        <span class="inquiry-reply-label">관리자 답변</span>
-        <div class="inquiry-reply-body">${linkifyText(item.reply)}</div>
+    ? `<div class="board-detail-reply">
+        <div class="board-detail-label">관리자 답변</div>
+        <div class="board-detail-text">${linkifyText(item.reply)}</div>
       </div>`
-    : '';
-
-  const statusBadge = hasReply
-    ? '<span class="inquiry-status answered">답변완료</span>'
-    : '<span class="inquiry-status waiting">답변대기</span>';
+    : `<p class="board-detail-pending">답변 준비 중입니다.</p>`;
 
   const adminBlock = admin
     ? `<div class="inquiry-item-admin">
-        <p class="inquiry-admin-only-label">관리자 전용</p>
-        <p class="inquiry-item-contact">이메일: ${escapeHtml(item.email || '-')} · 연락처: ${escapeHtml(item.phone || '-')}</p>
-        ${hasReply ? '' : '<p class="inquiry-reply-pending">답변 대기 중입니다.</p>'}
+        <div class="board-detail-label">관리자 전용</div>
+        <p class="inquiry-item-contact">이메일 ${escapeHtml(item.email || '-')} · 연락처 ${escapeHtml(item.phone || '-')}</p>
         <div class="inquiry-reply-form">
           <label class="inquiry-reply-form-label">답변 작성</label>
           <textarea class="inquiry-reply-input" rows="3" data-row="${item.row}" placeholder="답변 내용을 입력하세요">${escapeHtml(item.reply || '')}</textarea>
@@ -574,19 +612,35 @@ function renderInquiryItem(item, admin) {
       </div>`
     : '';
 
+  const statusClass = hasReply ? 'answered' : 'waiting';
+  const statusLabel = hasReply ? '답변완료' : '답변대기';
+
   return `
-    <article class="inquiry-item" data-row="${item.row}">
-      <div class="inquiry-item-header">
-        <h3 class="inquiry-item-subject">${escapeHtml(item.subject || '(제목 없음)')}</h3>
-        ${statusBadge}
+    <article class="board-item" data-row="${item.row}">
+      <button type="button" class="board-item-toggle" aria-expanded="false">
+        <span class="board-col-num">${number}</span>
+        <span class="board-col-status"><span class="board-status ${statusClass}">${statusLabel}</span></span>
+        <span class="board-col-subject">
+          <span class="board-subject-text">${subject}</span>
+          ${hasReply ? '<span class="board-reply-badge">답</span>' : ''}
+        </span>
+        <span class="board-col-author">
+          <span class="board-author-avatar">${initial}</span>
+          <span class="board-author-name">${author}</span>
+        </span>
+        <span class="board-col-date">${date}</span>
+        <span class="board-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="board-item-body">
+        <div class="board-detail">
+          <div class="board-detail-block">
+            <div class="board-detail-label">문의 내용</div>
+            <div class="board-detail-text">${linkifyText(item.message || '')}</div>
+          </div>
+          ${replyHtml}
+          ${adminBlock}
+        </div>
       </div>
-      <div class="inquiry-item-meta">
-        <span class="inquiry-item-author">${escapeHtml(item.name || '익명')}</span>
-        <span class="inquiry-item-date">${escapeHtml(formatInquiryDate(item.date))}</span>
-      </div>
-      <div class="inquiry-item-message">${linkifyText(item.message || '')}</div>
-      ${replyHtml}
-      ${adminBlock}
     </article>`;
 }
 
@@ -602,7 +656,7 @@ async function deleteInquiry(btn) {
   }
 
   const row = btn.dataset.row;
-  const subject = btn.closest('.inquiry-item')?.querySelector('.inquiry-item-subject')?.textContent || '이 문의';
+  const subject = btn.closest('.board-item')?.querySelector('.board-subject-text')?.textContent || '이 문의';
   if (!confirm(`「${subject}」 문의를 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) {
     return;
   }
@@ -647,7 +701,7 @@ async function submitInquiryReply(btn) {
   }
 
   const row = btn.dataset.row;
-  const article = btn.closest('.inquiry-item');
+  const article = btn.closest('.board-item');
   const textarea = article?.querySelector('.inquiry-reply-input');
   const reply = textarea?.value.trim() || '';
 

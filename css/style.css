@@ -839,14 +839,296 @@ body {
   margin-left: 0;
 }
 
-.board-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 20px;
+.inquiry-board {
+  padding-bottom: 48px;
 }
 
-.inquiry-board {
-  padding-bottom: 24px;
+.board-panel {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.board-panel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px 28px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.board-panel-desc {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: var(--color-text-light);
+}
+
+.board-panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.board-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.board-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  color: var(--color-text-light);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.board-stat strong {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.board-stat.answered strong {
+  color: #047857;
+}
+
+.board-stat.waiting strong {
+  color: #b45309;
+}
+
+.board-table-head,
+.board-item-toggle {
+  display: grid;
+  grid-template-columns: 56px 88px minmax(0, 1fr) 120px 110px 28px;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-table-head {
+  padding: 12px 24px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.board-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.board-item:last-child {
+  border-bottom: none;
+}
+
+.board-item-toggle {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  background: var(--color-bg);
+  text-align: left;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.board-item-toggle:hover {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.board-item.open .board-item-toggle {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.board-col-num {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  text-align: center;
+}
+
+.board-col-subject {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.board-subject-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-reply-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  border-radius: 4px;
+}
+
+.board-col-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.board-author-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.board-author-name {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-col-date {
+  font-size: 0.82rem;
+  color: var(--color-text-light);
+  white-space: nowrap;
+}
+
+.board-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.board-status.waiting {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.board-status.answered {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.board-chevron {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--color-text-light);
+  border-bottom: 2px solid var(--color-text-light);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  justify-self: center;
+}
+
+.board-item.open .board-chevron {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.board-item-body {
+  display: none;
+  padding: 0 24px 24px;
+  background: var(--color-bg-alt);
+  border-top: 1px dashed var(--color-border);
+}
+
+.board-item.open .board-item-body {
+  display: block;
+}
+
+.board-detail {
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.board-detail-block,
+.board-detail-reply {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.board-detail-reply {
+  border-left: 3px solid var(--color-accent);
+}
+
+.board-detail-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+.board-detail-text {
+  font-size: 0.94rem;
+  line-height: 1.7;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.board-detail-pending {
+  font-size: 0.88rem;
+  color: var(--color-text-light);
+  padding: 12px 16px;
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+
+.board-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 64px 24px;
+}
+
+.board-empty-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.board-empty-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  margin-bottom: 8px;
 }
 
 .inquiry-write {
@@ -1251,5 +1533,40 @@ body {
 
   .section {
     padding: 56px 0;
+  }
+
+  .board-panel-top {
+    padding: 20px;
+  }
+
+  .board-panel-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .board-table-head {
+    display: none;
+  }
+
+  .board-table-head,
+  .board-item-toggle {
+    grid-template-columns: 40px 72px minmax(0, 1fr) 24px;
+    grid-template-areas:
+      "num status chevron chevron"
+      "subject subject subject subject"
+      "author author date date";
+    gap: 8px 10px;
+    padding: 16px 18px;
+  }
+
+  .board-col-num { grid-area: num; text-align: left; }
+  .board-col-status { grid-area: status; }
+  .board-col-subject { grid-area: subject; }
+  .board-col-author { grid-area: author; }
+  .board-col-date { grid-area: date; justify-self: end; }
+  .board-chevron { grid-area: chevron; justify-self: end; }
+
+  .board-item-body {
+    padding: 0 18px 18px;
   }
 }

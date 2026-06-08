@@ -852,6 +852,13 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.inquiry-list-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .list-title {

@@ -1,19 +1,26 @@
 /**
  * edgacst 문의게시판 - Google 스프레드시트 연동
  *
- * [설정 방법]
- * 1. 아래 스프레드시트 열기
- *    https://docs.google.com/spreadsheets/d/1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI/edit
- * 2. 확장 프로그램 → Apps Script
- * 3. 이 코드 전체 붙여넣기 후 저장
- * 4. 배포 → 새 배포 → 유형: 웹 앱
- *    - 실행 계정: 나
- *    - 액세스 권한: 모든 사용자
- * 5. 생성된 웹 앱 URL을 js/config.js 의 SCRIPT_URL 에 입력
+ * [승인이 안 될 때 - 먼저 이것부터]
+ * 1. 스프레드시트 → 확장 프로그램 → Apps Script (반드시 스프레드시트에서 열기)
+ * 2. 아래 testAuth 함수 선택 → ▶ 실행
+ * 3. 권한 검토 → freecompr20@gmail.com 선택 → 고급 → 안전하지 않음으로 이동 → 허용
+ * 4. 그래도 안 되면 js/config.js 에 Google Form 방식 사용 (승인 불필요)
+ *
+ * [웹 앱 배포]
+ * 1. testAuth 실행 성공 후
+ * 2. 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
+ * 3. URL을 js/config.js 의 SCRIPT_URL 에 입력
  */
 
 const SPREADSHEET_ID = '1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI';
 const ADMIN_TOKEN = '1324';
+
+/** 에디터에서 선택 후 ▶ 실행 → 권한 승인 */
+function testAuth() {
+  const sheet = getOrCreateSheet_();
+  Logger.log('연결 성공: ' + sheet.getName());
+}
 
 function doPost(e) {
   try {

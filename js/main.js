@@ -362,6 +362,58 @@ function getScriptUrl() {
   return (typeof GOOGLE_CONFIG !== 'undefined' && GOOGLE_CONFIG.SCRIPT_URL) || '';
 }
 
+function hasGoogleFormConfig() {
+  if (typeof GOOGLE_CONFIG === 'undefined') return false;
+  const entries = GOOGLE_CONFIG.FORM_ENTRIES || {};
+  return Boolean(
+    GOOGLE_CONFIG.FORM_ACTION_URL &&
+    entries.name &&
+    entries.email &&
+    entries.subject &&
+    entries.message
+  );
+}
+
+function getInquirySubmitMode() {
+  if (getScriptUrl()) return 'apps-script';
+  if (hasGoogleFormConfig()) return 'google-form';
+  return 'none';
+}
+
+async function submitInquiry(inquiry) {
+  const mode = getInquirySubmitMode();
+
+  if (mode === 'apps-script') {
+    await fetch(getScriptUrl(), {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(inquiry)
+    });
+    return;
+  }
+
+  if (mode === 'google-form') {
+    const entries = GOOGLE_CONFIG.FORM_ENTRIES;
+    const params = new URLSearchParams();
+    params.append(entries.name, inquiry.name);
+    params.append(entries.email, inquiry.email);
+    if (entries.phone) params.append(entries.phone, inquiry.phone);
+    params.append(entries.subject, inquiry.subject);
+    params.append(entries.message, inquiry.message);
+
+    await fetch(GOOGLE_CONFIG.FORM_ACTION_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    return;
+  }
+
+  throw new Error('not configured');
+}
+
 function initInquiryForm() {
   const form = document.getElementById('inquiryForm');
   if (!form) return;
@@ -369,9 +421,8 @@ function initInquiryForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const scriptUrl = getScriptUrl();
-    if (!scriptUrl) {
-      showToast('스프레드시트 연동 URL이 설정되지 않았습니다.');
+    if (getInquirySubmitMode() === 'none') {
+      showToast('문의 연동이 설정되지 않았습니다. config.js 를 확인해 주세요.');
       return;
     }
 
@@ -388,13 +439,7 @@ function initInquiryForm() {
     submitBtn.textContent = '등록 중...';
 
     try {
-      await fetch(scriptUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(inquiry)
-      });
-
+      await submitInquiry(inquiry);
       form.reset();
       showToast('문의가 등록되었습니다.');
 
@@ -480,11 +525,13 @@ async function loadInquiriesFromSheet() {
 
   const scriptUrl = getScriptUrl();
   if (!scriptUrl) {
-    listError?.classList.remove('hidden');
     listLoading?.classList.add('hidden');
     listEmpty?.classList.add('hidden');
+    listError?.classList.remove('hidden');
     if (listErrorMessage) {
-      listErrorMessage.textContent = 'js/config.js 에 Google Apps Script URL을 설정해 주세요.';
+      listErrorMessage.textContent = hasGoogleFormConfig()
+        ? 'Google Form 연동 중입니다. 위 「스프레드시트 열기」에서 문의를 확인하거나, Apps Script 배포 후 목록을 불러올 수 있습니다.'
+        : 'js/config.js 에 Google Form 또는 Apps Script URL을 설정해 주세요.';
     }
     listItems.innerHTML = '';
     return;

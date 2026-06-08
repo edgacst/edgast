@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
   initInquiryForm();
+  initInquiryAdmin();
   initStatusPage();
   initFooterAdmin();
 });
@@ -357,64 +358,189 @@ function initMobileMenu() {
   });
 }
 
+function getScriptUrl() {
+  return (typeof GOOGLE_CONFIG !== 'undefined' && GOOGLE_CONFIG.SCRIPT_URL) || '';
+}
+
 function initInquiryForm() {
   const form = document.getElementById('inquiryForm');
   if (!form) return;
 
-  renderInquiryList();
-
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const scriptUrl = getScriptUrl();
+    if (!scriptUrl) {
+      showToast('스프레드시트 연동 URL이 설정되지 않았습니다.');
+      return;
+    }
+
     const inquiry = {
-      id: Date.now(),
       name: form.name.value.trim(),
       email: form.email.value.trim(),
       phone: form.phone.value.trim(),
       subject: form.subject.value.trim(),
-      message: form.message.value.trim(),
-      date: new Date().toLocaleString('ko-KR')
+      message: form.message.value.trim()
     };
 
-    const inquiries = getInquiries();
-    inquiries.unshift(inquiry);
-    localStorage.setItem('edgacst_inquiries', JSON.stringify(inquiries));
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
 
-    form.reset();
-    renderInquiryList();
-    showToast('문의가 등록되었습니다.');
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(inquiry)
+      });
+
+      form.reset();
+      showToast('문의가 등록되었습니다.');
+
+      if (isAdminLoggedIn()) {
+        loadInquiriesFromSheet();
+      }
+    } catch {
+      showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '문의 등록';
+    }
   });
 }
 
-function getInquiries() {
-  try {
-    return JSON.parse(localStorage.getItem('edgacst_inquiries')) || [];
-  } catch {
-    return [];
+function initInquiryAdmin() {
+  const inquiryList = document.getElementById('inquiryList');
+  if (!inquiryList) return;
+
+  const adminLoginBtn = document.getElementById('adminLoginBtn');
+  const loginForm = document.getElementById('loginForm');
+  const loginCancelBtn = document.getElementById('loginCancelBtn');
+  const loginModalBackdrop = document.getElementById('loginModalBackdrop');
+  const inquiryRefreshBtn = document.getElementById('inquiryRefreshBtn');
+
+  updateInquiryAdminUI();
+
+  adminLoginBtn?.addEventListener('click', handleInquiryAdminClick);
+
+  if (new URLSearchParams(location.search).get('admin') === '1') {
+    handleInquiryAdminClick();
+  }
+
+  loginForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const password = document.getElementById('adminPassword').value;
+    if (password === getAdminPassword()) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      closeLoginModal();
+      updateInquiryAdminUI();
+      loadInquiriesFromSheet();
+      showToast('관리자 로그인되었습니다.');
+      document.getElementById('inquiryList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      showToast('비밀번호가 올바르지 않습니다.');
+    }
+  });
+
+  loginCancelBtn?.addEventListener('click', closeLoginModal);
+  loginModalBackdrop?.addEventListener('click', closeLoginModal);
+  inquiryRefreshBtn?.addEventListener('click', loadInquiriesFromSheet);
+}
+
+function handleInquiryAdminClick() {
+  if (isAdminLoggedIn()) {
+    updateInquiryAdminUI();
+    loadInquiriesFromSheet();
+    document.getElementById('inquiryList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    openLoginModal();
   }
 }
 
-function renderInquiryList() {
+function updateInquiryAdminUI() {
+  const isAdmin = isAdminLoggedIn();
+  const inquiryList = document.getElementById('inquiryList');
+  const adminLoginBtn = document.getElementById('adminLoginBtn');
+
+  inquiryList?.classList.toggle('hidden', !isAdmin);
+  if (adminLoginBtn) {
+    adminLoginBtn.textContent = isAdmin ? '문의 목록' : '관리자';
+  }
+}
+
+async function loadInquiriesFromSheet() {
   const listItems = document.getElementById('listItems');
   const listEmpty = document.getElementById('listEmpty');
-  if (!listItems || !listEmpty) return;
+  const listLoading = document.getElementById('listLoading');
+  const listError = document.getElementById('listError');
+  const listErrorMessage = document.getElementById('listErrorMessage');
 
-  const inquiries = getInquiries();
+  if (!listItems || !isAdminLoggedIn()) return;
 
-  if (inquiries.length === 0) {
-    listEmpty.style.display = 'block';
+  const scriptUrl = getScriptUrl();
+  if (!scriptUrl) {
+    listError?.classList.remove('hidden');
+    listLoading?.classList.add('hidden');
+    listEmpty?.classList.add('hidden');
+    if (listErrorMessage) {
+      listErrorMessage.textContent = 'js/config.js 에 Google Apps Script URL을 설정해 주세요.';
+    }
     listItems.innerHTML = '';
     return;
   }
 
-  listEmpty.style.display = 'none';
+  listLoading?.classList.remove('hidden');
+  listError?.classList.add('hidden');
+  listEmpty?.classList.add('hidden');
+  listItems.innerHTML = '';
+
+  try {
+    const url = `${scriptUrl}?token=${encodeURIComponent(getAdminPassword())}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    listLoading?.classList.add('hidden');
+
+    if (!data.success) {
+      throw new Error(data.error || 'load failed');
+    }
+
+    renderInquiryList(data.inquiries || []);
+  } catch (err) {
+    listLoading?.classList.add('hidden');
+    listError?.classList.remove('hidden');
+    if (listErrorMessage) {
+      listErrorMessage.textContent = '문의 목록을 불러올 수 없습니다. Apps Script 배포 설정을 확인해 주세요.';
+    }
+    listItems.innerHTML = '';
+  }
+}
+
+function renderInquiryList(inquiries) {
+  const listItems = document.getElementById('listItems');
+  const listEmpty = document.getElementById('listEmpty');
+  const listError = document.getElementById('listError');
+  if (!listItems || !listEmpty) return;
+
+  listError?.classList.add('hidden');
+
+  if (inquiries.length === 0) {
+    listEmpty.classList.remove('hidden');
+    listItems.innerHTML = '';
+    return;
+  }
+
+  listEmpty.classList.add('hidden');
   listItems.innerHTML = inquiries.map(item => `
     <div class="inquiry-item">
       <div class="inquiry-item-header">
         <span class="inquiry-item-subject">${escapeHtml(item.subject)}</span>
         <span class="inquiry-item-date">${escapeHtml(item.date)}</span>
       </div>
-      <div class="inquiry-item-meta">${escapeHtml(item.name)} · ${escapeHtml(item.email)}</div>
+      <div class="inquiry-item-meta">
+        ${escapeHtml(item.name)} · ${escapeHtml(item.email)}${item.phone ? ` · ${escapeHtml(item.phone)}` : ''}
+      </div>
       <p class="inquiry-item-message">${linkifyText(item.message)}</p>
     </div>
   `).join('');

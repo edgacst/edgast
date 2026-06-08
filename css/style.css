@@ -846,11 +846,34 @@ body {
   padding-top: 48px;
 }
 
+.inquiry-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
 .list-title {
   font-size: 1.35rem;
   font-weight: 600;
   color: var(--color-primary);
-  margin-bottom: 24px;
+  margin-bottom: 0;
+}
+
+.list-loading,
+.list-error {
+  text-align: center;
+  padding: 32px;
+  color: var(--color-text-light);
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+}
+
+.list-error {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .list-empty {

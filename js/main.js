@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   initMobileMenu();
+  initHeroVideo();
   prefetchInquiries();
   initBoardLinkPrefetch();
   initInquiryBoard();
@@ -347,6 +348,24 @@ function formatDateTime(isoString) {
     return new Date(isoString).toLocaleString('ko-KR');
   } catch {
     return isoString;
+  }
+}
+
+function initHeroVideo() {
+  const video = document.querySelector('.hero-video');
+  if (!video) return;
+
+  const playVideo = () => {
+    const promise = video.play();
+    if (promise?.catch) {
+      promise.catch(() => {});
+    }
+  };
+
+  if (video.readyState >= 2) {
+    playVideo();
+  } else {
+    video.addEventListener('loadeddata', playVideo, { once: true });
   }
 }
 

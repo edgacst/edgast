@@ -995,6 +995,10 @@ body {
   white-space: nowrap;
 }
 
+.board-author-avatar {
+  display: none !important;
+}
+
 .board-td-date {
   font-size: 0.82rem;
   color: var(--color-text-light);

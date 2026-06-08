@@ -22,7 +22,7 @@ const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
 const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
 const PROJECTS_CACHE_KEY = 'edgacst_projects_cache';
-const INQUIRIES_CACHE_TTL_MS = 5 * 60 * 1000;
+const INQUIRIES_CACHE_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
 let statusProjects = [];
@@ -118,9 +118,9 @@ async function loadProjects(options = {}) {
   }
 
   if (!forceRefresh) {
-    const cached = getProjectCache();
-    if (cached) {
-      statusProjects = cached;
+    const freshCache = getProjectCache();
+    if (freshCache) {
+      statusProjects = freshCache;
       renderStatusTable();
       if (isAdminLoggedIn()) {
         migrateLocalProjectsIfNeeded();
@@ -129,8 +129,14 @@ async function loadProjects(options = {}) {
     }
   }
 
-  statusEmpty?.classList.add('hidden');
-  tbody.innerHTML = '<tr><td colspan="2" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
+  const staleCache = !forceRefresh ? getProjectCacheStale() : null;
+  if (staleCache) {
+    statusProjects = staleCache;
+    renderStatusTable();
+  } else {
+    statusEmpty?.classList.add('hidden');
+    tbody.innerHTML = '<tr><td colspan="2" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
+  }
 
   try {
     statusProjects = await fetchProjectsFromApi();
@@ -140,6 +146,8 @@ async function loadProjects(options = {}) {
       migrateLocalProjectsIfNeeded();
     }
   } catch (err) {
+    if (staleCache) return;
+
     statusProjects = [];
     tbody.innerHTML = '';
     statusEmpty?.classList.remove('hidden');
@@ -656,13 +664,13 @@ function hasScriptConfig() {
   return Boolean(GOOGLE_CONFIG?.SCRIPT_URL);
 }
 
-function getInquiryCache(isAdmin) {
+function getInquiryCacheRaw(isAdmin) {
   const raw = sessionStorage.getItem(INQUIRIES_CACHE_KEY) || localStorage.getItem(INQUIRIES_CACHE_KEY);
   if (!raw) return null;
 
   try {
     const cache = JSON.parse(raw);
-    if (!cache?.inquiries || Date.now() - cache.at > INQUIRIES_CACHE_TTL_MS) return null;
+    if (!cache?.inquiries) return null;
     if (!isAdmin && cache.isAdmin) return null;
     if (cache.isAdmin === isAdmin) return cache;
     if (isAdmin && !cache.isAdmin) return cache;
@@ -670,6 +678,16 @@ function getInquiryCache(isAdmin) {
   } catch {
     return null;
   }
+}
+
+function getInquiryCache(isAdmin) {
+  const cache = getInquiryCacheRaw(isAdmin);
+  if (!cache || Date.now() - cache.at > INQUIRIES_CACHE_TTL_MS) return null;
+  return cache;
+}
+
+function getInquiryCacheStale(isAdmin) {
+  return getInquiryCacheRaw(isAdmin);
 }
 
 function setInquiryCache(inquiries, isAdmin) {
@@ -683,6 +701,19 @@ function clearInquiryCache() {
   localStorage.removeItem(INQUIRIES_CACHE_KEY);
 }
 
+function getProjectCacheRaw() {
+  const raw = sessionStorage.getItem(PROJECTS_CACHE_KEY) || localStorage.getItem(PROJECTS_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    const cache = JSON.parse(raw);
+    if (!cache?.projects) return null;
+    return cache.projects;
+  } catch {
+    return null;
+  }
+}
+
 function getProjectCache() {
   const raw = sessionStorage.getItem(PROJECTS_CACHE_KEY) || localStorage.getItem(PROJECTS_CACHE_KEY);
   if (!raw) return null;
@@ -694,6 +725,10 @@ function getProjectCache() {
   } catch {
     return null;
   }
+}
+
+function getProjectCacheStale() {
+  return getProjectCacheRaw();
 }
 
 function setProjectCache(projects) {
@@ -758,7 +793,7 @@ async function fetchInquiriesFromApi(isAdmin) {
     url.searchParams.set('token', getAdminPassword());
   }
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { redirect: 'follow' });
   const data = await res.json();
   if (!data.success) {
     throw new Error(data.error || 'load failed');
@@ -779,9 +814,11 @@ function prefetchInquiries() {
 }
 
 function initBoardLinkPrefetch() {
+  const prefetch = () => prefetchInquiries();
   document.querySelectorAll('a[href="board.html"], a[href="./board.html"]').forEach(link => {
-    link.addEventListener('mouseenter', prefetchInquiries, { once: false });
-    link.addEventListener('focus', prefetchInquiries, { once: false });
+    link.addEventListener('mouseenter', prefetch, { once: false });
+    link.addEventListener('focus', prefetch, { once: false });
+    link.addEventListener('touchstart', prefetch, { once: false, passive: true });
   });
 }
 
@@ -798,10 +835,18 @@ async function loadInquiries(options = {}) {
   }
 
   const isAdmin = isAdminLoggedIn();
-  const cache = !forceRefresh ? getInquiryCache(isAdmin) : null;
 
-  if (cache) {
-    renderInquiryList(cache.inquiries);
+  if (!forceRefresh) {
+    const freshCache = getInquiryCache(isAdmin);
+    if (freshCache) {
+      renderInquiryList(freshCache.inquiries);
+      return;
+    }
+  }
+
+  const staleCache = !forceRefresh ? getInquiryCacheStale(isAdmin) : null;
+  if (staleCache) {
+    renderInquiryList(staleCache.inquiries);
   } else {
     showBoardLoading(container);
   }
@@ -811,7 +856,7 @@ async function loadInquiries(options = {}) {
     setInquiryCache(inquiries, isAdmin);
     renderInquiryList(inquiries);
   } catch {
-    if (!cache) {
+    if (!staleCache) {
       showBoardError(container, '문의 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     }
   }

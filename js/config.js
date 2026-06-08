@@ -14,3 +14,55 @@ const GOOGLE_CONFIG = {
   // 스프레드시트 탭: Form_Responses(문의), 개발업무(업무현황), 문의백업
   PROJECT_SHEET_NAME: '개발업무'
 };
+
+(function earlyPrefetch() {
+  const scriptUrl = GOOGLE_CONFIG?.SCRIPT_URL;
+  if (!scriptUrl) return;
+
+  const INQUIRIES_KEY = 'edgacst_inquiries_cache';
+  const PROJECTS_KEY = 'edgacst_projects_cache';
+  const TTL_MS = 15 * 60 * 1000;
+
+  function hasFreshCache(key) {
+    try {
+      const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+      if (!raw) return false;
+      const cache = JSON.parse(raw);
+      return Boolean(cache?.at && Date.now() - cache.at < TTL_MS);
+    } catch {
+      return false;
+    }
+  }
+
+  function saveCache(key, payload) {
+    const data = JSON.stringify({ ...payload, at: Date.now() });
+    sessionStorage.setItem(key, data);
+    localStorage.setItem(key, data);
+  }
+
+  if (!hasFreshCache(INQUIRIES_KEY)) {
+    const url = new URL(scriptUrl);
+    url.searchParams.set('action', 'list');
+    fetch(url.toString(), { redirect: 'follow' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          saveCache(INQUIRIES_KEY, { inquiries: data.inquiries || [], isAdmin: false });
+        }
+      })
+      .catch(() => {});
+  }
+
+  if (!hasFreshCache(PROJECTS_KEY)) {
+    const url = new URL(scriptUrl);
+    url.searchParams.set('action', 'projects');
+    fetch(url.toString(), { redirect: 'follow' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          saveCache(PROJECTS_KEY, { projects: data.projects || [] });
+        }
+      })
+      .catch(() => {});
+  }
+})();

@@ -7,4 +7,12 @@
       'https://' + location.host + location.pathname + location.search + location.hash
     );
   }
+
+  try {
+    if (sessionStorage.getItem('edgacst-page-transition') === 'out') {
+      document.documentElement.classList.add('page-enter-pending');
+    }
+  } catch (e) {
+    // sessionStorage unavailable
+  }
 })();

@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  initPageTransitions();
   initMobileMenu();
   initHeroVideo();
   prefetchInquiries();
@@ -490,6 +491,66 @@ function formatDateTime(isoString) {
   }
 }
 
+function initPageTransitions() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.remove('page-enter-pending');
+    sessionStorage.removeItem('edgacst-page-transition');
+    return;
+  }
+
+  const fromNav = document.documentElement.classList.contains('page-enter-pending');
+  document.documentElement.classList.remove('page-enter-pending');
+  sessionStorage.removeItem('edgacst-page-transition');
+
+  if (!fromNav) {
+    document.body.style.opacity = '0';
+    document.body.style.transform = 'translateY(10px)';
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.body.classList.add('page-enter-active');
+      document.body.style.opacity = '';
+      document.body.style.transform = '';
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+    let url;
+    try {
+      url = new URL(link.href, location.href);
+    } catch {
+      return;
+    }
+
+    if (url.origin !== location.origin) return;
+    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+
+    e.preventDefault();
+    navigateWithTransition(link.href);
+  });
+}
+
+function navigateWithTransition(url) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    location.href = url;
+    return;
+  }
+
+  if (document.body.classList.contains('page-leave-active')) return;
+
+  document.body.classList.add('page-leave-active');
+  sessionStorage.setItem('edgacst-page-transition', 'out');
+
+  window.setTimeout(() => {
+    location.href = url;
+  }, 360);
+}
+
 function initHeroVideo() {
   const video = document.querySelector('.hero-video');
   if (!video) return;
@@ -632,7 +693,7 @@ function initInquiryAdminBtn() {
         loadInquiries();
         return;
       }
-      location.href = 'board.html';
+      navigateWithTransition('board.html');
     });
   });
   updateInquiryAdminBtn();

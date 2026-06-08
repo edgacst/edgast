@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="(주)에드가씨에스티 공개게시판">
   <title>공개게시판 | edgacst</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260609">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -50,7 +50,7 @@
             <div class="board-panel-top">
               <div class="board-panel-info">
                 <div class="board-stats" id="boardStats"></div>
-                <p class="board-panel-desc">제목을 누르면 내용과 답변을 확인할 수 있습니다.</p>
+                <p class="board-panel-desc">제목을 클릭하면 문의 내용과 답변을 확인할 수 있습니다.</p>
               </div>
               <div class="board-panel-actions">
                 <a href="inquiry.html" class="btn btn-primary btn-sm">문의 작성</a>
@@ -60,15 +60,26 @@
               </div>
             </div>
             <p class="inquiry-admin-banner hidden" id="inquiryAdminBanner">관리자 모드 — 연락처 확인, 답변 작성, 삭제가 가능합니다.</p>
-            <div class="board-table-head" aria-hidden="true">
-              <span class="board-col-num">번호</span>
-              <span class="board-col-status">상태</span>
-              <span class="board-col-subject">제목</span>
-              <span class="board-col-author">작성자</span>
-              <span class="board-col-date">등록일</span>
-            </div>
-            <div id="inquiryListContainer">
-              <p class="list-loading">문의 목록을 불러오는 중...</p>
+            <div class="board-table-wrap">
+              <table class="board-table">
+                <thead>
+                  <tr>
+                    <th class="board-th-num">번호</th>
+                    <th class="board-th-status">상태</th>
+                    <th class="board-th-subject">제목</th>
+                    <th class="board-th-author">작성자</th>
+                    <th class="board-th-date">등록일</th>
+                  </tr>
+                </thead>
+                <tbody id="inquiryListContainer">
+                  <tr>
+                    <td colspan="5" class="board-loading-cell">
+                      <span class="board-loading-spinner"></span>
+                      문의 목록을 불러오는 중...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -109,7 +120,7 @@
     </div>
   </footer>
 
-  <script src="js/config.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/config.js?v=20260609"></script>
+  <script src="js/main.js?v=20260609"></script>
 </body>
 </html>

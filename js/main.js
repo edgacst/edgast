@@ -388,9 +388,9 @@ function initInquiryBoard() {
       deleteInquiry(deleteBtn);
       return;
     }
-    const toggleBtn = e.target.closest('.board-item-toggle');
-    if (toggleBtn) {
-      toggleBoardItem(toggleBtn);
+    const titleBtn = e.target.closest('.board-title-btn');
+    if (titleBtn) {
+      toggleBoardRow(titleBtn);
     }
   });
 
@@ -505,14 +505,22 @@ async function loadInquiries() {
 
   if (!hasScriptConfig()) {
     container.innerHTML = `
-      <div class="list-error">
-        <p>문의 목록을 표시하려면 Apps Script 웹앱 URL이 필요합니다.</p>
-        <p style="margin-top:8px;font-size:0.9rem;">google-apps-script/Code.gs 를 배포한 뒤 <code>js/config.js</code> 의 <code>SCRIPT_URL</code> 에 입력해 주세요.</p>
-      </div>`;
+      <tr>
+        <td colspan="5" class="board-error-cell">
+          문의 목록을 표시하려면 Apps Script 웹앱 URL이 필요합니다.
+          <code>js/config.js</code> 의 <code>SCRIPT_URL</code> 을 확인해 주세요.
+        </td>
+      </tr>`;
     return;
   }
 
-  container.innerHTML = '<p class="list-loading">문의 목록을 불러오는 중...</p>';
+  container.innerHTML = `
+    <tr>
+      <td colspan="5" class="board-loading-cell">
+        <span class="board-loading-spinner"></span>
+        문의 목록을 불러오는 중...
+      </td>
+    </tr>`;
 
   try {
     const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
@@ -530,7 +538,10 @@ async function loadInquiries() {
 
     renderInquiryList(data.inquiries || []);
   } catch {
-    container.innerHTML = '<p class="list-error">문의 목록을 불러오지 못했습니다. SCRIPT_URL 과 Apps Script 배포를 확인해 주세요.</p>';
+    container.innerHTML = `
+      <tr>
+        <td colspan="5" class="board-error-cell">문의 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.</td>
+      </tr>`;
   }
 }
 
@@ -554,33 +565,34 @@ function renderInquiryList(inquiries) {
 
   if (!inquiries.length) {
     container.innerHTML = `
-      <div class="list-empty board-empty">
-        <p class="board-empty-title">등록된 문의가 없습니다.</p>
-        <p class="board-empty-desc">궁금한 점이 있으시면 문의를 남겨 주세요.</p>
-        <a href="inquiry.html" class="btn btn-primary btn-sm">문의 작성하기</a>
-      </div>`;
+      <tr>
+        <td colspan="5" class="board-empty-cell">
+          <p class="board-empty-title">등록된 문의가 없습니다.</p>
+          <p class="board-empty-desc">궁금한 점이 있으시면 문의를 남겨 주세요.</p>
+          <a href="inquiry.html" class="btn btn-primary btn-sm">문의 작성하기</a>
+        </td>
+      </tr>`;
     return;
   }
 
   const admin = isAdminLoggedIn();
-  container.innerHTML = `<div class="board-items">${inquiries.map((item, index) => renderInquiryItem(item, admin, inquiries.length - index)).join('')}</div>`;
+  container.innerHTML = inquiries.map((item, index) => renderInquiryItem(item, admin, inquiries.length - index)).join('');
 }
 
-function toggleBoardItem(btn) {
-  const item = btn.closest('.board-item');
-  const body = item?.querySelector('.board-item-body');
-  if (!item || !body) return;
+function toggleBoardRow(btn) {
+  const detailRow = btn.closest('tr')?.nextElementSibling;
+  if (!detailRow?.classList.contains('board-detail-row')) return;
 
-  const isOpen = item.classList.contains('open');
-  document.querySelectorAll('.board-item.open').forEach(openItem => {
-    if (openItem !== item) {
-      openItem.classList.remove('open');
-      openItem.querySelector('.board-item-toggle')?.setAttribute('aria-expanded', 'false');
-    }
+  const isOpen = detailRow.classList.contains('open');
+  document.querySelectorAll('.board-detail-row.open').forEach(row => row.classList.remove('open'));
+  document.querySelectorAll('.board-title-btn[aria-expanded="true"]').forEach(openBtn => {
+    openBtn.setAttribute('aria-expanded', 'false');
   });
 
-  item.classList.toggle('open', !isOpen);
-  btn.setAttribute('aria-expanded', String(!isOpen));
+  if (!isOpen) {
+    detailRow.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
 }
 
 function renderInquiryItem(item, admin, number) {
@@ -616,22 +628,23 @@ function renderInquiryItem(item, admin, number) {
   const statusLabel = hasReply ? '답변완료' : '답변대기';
 
   return `
-    <article class="board-item" data-row="${item.row}">
-      <button type="button" class="board-item-toggle" aria-expanded="false">
-        <span class="board-col-num">${number}</span>
-        <span class="board-col-status"><span class="board-status ${statusClass}">${statusLabel}</span></span>
-        <span class="board-col-subject">
+    <tr class="board-row" data-row="${item.row}">
+      <td class="board-td-num">${number}</td>
+      <td class="board-td-status"><span class="board-status ${statusClass}">${statusLabel}</span></td>
+      <td class="board-td-subject">
+        <button type="button" class="board-title-btn" aria-expanded="false">
           <span class="board-subject-text">${subject}</span>
-          ${hasReply ? '<span class="board-reply-badge">답</span>' : ''}
-        </span>
-        <span class="board-col-author">
-          <span class="board-author-avatar">${initial}</span>
-          <span class="board-author-name">${author}</span>
-        </span>
-        <span class="board-col-date">${date}</span>
-        <span class="board-chevron" aria-hidden="true"></span>
-      </button>
-      <div class="board-item-body">
+          ${hasReply ? '<span class="board-reply-badge">답변</span>' : ''}
+        </button>
+      </td>
+      <td class="board-td-author">
+        <span class="board-author-avatar">${initial}</span>
+        <span class="board-author-name">${author}</span>
+      </td>
+      <td class="board-td-date">${date}</td>
+    </tr>
+    <tr class="board-detail-row" data-row="${item.row}">
+      <td colspan="5">
         <div class="board-detail">
           <div class="board-detail-block">
             <div class="board-detail-label">문의 내용</div>
@@ -640,8 +653,8 @@ function renderInquiryItem(item, admin, number) {
           ${replyHtml}
           ${adminBlock}
         </div>
-      </div>
-    </article>`;
+      </td>
+    </tr>`;
 }
 
 async function deleteInquiry(btn) {
@@ -656,7 +669,8 @@ async function deleteInquiry(btn) {
   }
 
   const row = btn.dataset.row;
-  const subject = btn.closest('.board-item')?.querySelector('.board-subject-text')?.textContent || '이 문의';
+  const rowNum = btn.dataset.row;
+  const subject = document.querySelector(`.board-row[data-row="${rowNum}"] .board-subject-text`)?.textContent || '이 문의';
   if (!confirm(`「${subject}」 문의를 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) {
     return;
   }
@@ -701,7 +715,7 @@ async function submitInquiryReply(btn) {
   }
 
   const row = btn.dataset.row;
-  const article = btn.closest('.board-item');
+  const article = btn.closest('.board-detail-row');
   const textarea = article?.querySelector('.inquiry-reply-input');
   const reply = textarea?.value.trim() || '';
 

@@ -210,11 +210,10 @@ function initStatusAdmin() {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     resetProjectForm();
     updateAdminUI();
-    updateInquiryAdminBtn();
-    updateInquiryAdminUI();
-    renderStatusTable();
-    loadInquiries();
-    showToast('로그아웃되었습니다.');
+      updateInquiryAdminBtn();
+      updateInquiryAdminUI();
+      renderStatusTable();
+      showToast('로그아웃되었습니다.');
   });
 
   loginForm?.addEventListener('submit', (e) => {
@@ -227,12 +226,9 @@ function initStatusAdmin() {
       renderStatusTable();
       updateInquiryAdminBtn();
       updateInquiryAdminUI();
-      loadInquiries();
       showToast('관리자 로그인되었습니다.');
       if (adminPanel) {
         adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     } else {
       showToast('비밀번호가 올바르지 않습니다.');
@@ -368,8 +364,12 @@ function initMobileMenu() {
   });
 }
 
+function isBoardPage() {
+  return document.body?.dataset.page === 'board';
+}
+
 function initInquiryBoard() {
-  if (!document.getElementById('inquiryListContainer')) return;
+  if (!isBoardPage() || !document.getElementById('inquiryListContainer')) return;
 
   document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries());
   document.getElementById('inquiryAdminLoginBtn')?.addEventListener('click', () => openLoginModal());
@@ -481,6 +481,8 @@ function initInquiryAdminBtn() {
 }
 
 function updateInquiryAdminUI() {
+  if (!isBoardPage()) return;
+
   const loggedIn = isAdminLoggedIn();
   document.getElementById('inquiryLogoutBtn')?.classList.toggle('hidden', !loggedIn);
   document.getElementById('inquiryAdminLoginBtn')?.classList.toggle('hidden', loggedIn);
@@ -584,6 +586,8 @@ function initBoardLinkPrefetch() {
 
 async function loadInquiries(options = {}) {
   const { forceRefresh = false } = options;
+  if (!isBoardPage()) return;
+
   const container = document.getElementById('inquiryListContainer');
   if (!container) return;
 
@@ -624,6 +628,8 @@ function renderBoardStats(inquiries) {
 }
 
 function renderInquiryList(inquiries) {
+  if (!isBoardPage()) return;
+
   const container = document.getElementById('inquiryListContainer');
   if (!container) return;
 

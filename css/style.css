@@ -299,6 +299,13 @@ body {
   text-align: center;
 }
 
+.cta-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .cta-inner h2 {
   font-size: 1.75rem;
   font-weight: 700;

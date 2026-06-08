@@ -16,64 +16,103 @@ const STATUS_LABELS = {
   waiting: '대기'
 };
 
-const PROJECTS_KEY = 'edgacst_projects';
 const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
 const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
 const INQUIRIES_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
-const DEFAULT_PROJECTS = [
-  {
-    id: 1,
-    name: '홈페이지 리뉴얼',
-    assignee: '개발팀',
-    start: '2026-03-01',
-    end: '2026-04-15',
-    progress: 75,
-    status: 'progress',
-    content: '메인 페이지 및 사업영역 페이지 디자인 완료. 문의게시판 UI 구현 중.',
-    updatedAt: '2026-03-15T10:00:00'
-  },
-  {
-    id: 2,
-    name: '고객 관리 시스템',
-    assignee: '개발팀',
-    start: '2026-02-10',
-    end: '2026-05-30',
-    progress: 40,
-    status: 'progress',
-    content: '회원 관리 모듈 개발 완료. 주문 관리 화면 설계 진행 중.',
-    updatedAt: '2026-03-10T14:30:00'
-  }
-];
+let statusProjects = [];
 
 function initStatusPage() {
   const tbody = document.getElementById('statusTableBody');
   if (!tbody) return;
 
-  seedProjectsIfEmpty();
-  renderStatusTable();
-  initStatusAdmin();
-}
-
-function seedProjectsIfEmpty() {
-  if (!localStorage.getItem(PROJECTS_KEY)) {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(DEFAULT_PROJECTS));
-  }
   localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
+  initStatusAdmin();
+  loadProjects();
 }
 
 function getProjects() {
+  return statusProjects;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(GOOGLE_CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+async function migrateLocalProjectsIfNeeded() {
+  const raw = localStorage.getItem('edgacst_projects');
+  if (!raw || statusProjects.length > 0 || !hasScriptConfig()) return;
+
   try {
-    return JSON.parse(localStorage.getItem(PROJECTS_KEY)) || [];
+    const localProjects = JSON.parse(raw);
+    if (!Array.isArray(localProjects) || !localProjects.length) return;
+
+    for (const project of localProjects) {
+      await apiPost({
+        action: 'project-save',
+        token: getAdminPassword(),
+        project: {
+          id: project.id || null,
+          name: project.name,
+          assignee: project.assignee,
+          start: project.start,
+          end: project.end,
+          progress: project.progress,
+          status: project.status,
+          content: project.content
+        }
+      });
+    }
+
+    localStorage.removeItem('edgacst_projects');
+    showToast('브라우저에 저장된 업무를 스프레드시트로 옮겼습니다.');
+    await loadProjects();
   } catch {
-    return [];
+    // 마이그레이션 실패 시 조용히 무시
   }
 }
 
-function saveProjects(projects) {
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+async function loadProjects() {
+  const tbody = document.getElementById('statusTableBody');
+  const statusEmpty = document.getElementById('statusEmpty');
+  if (!tbody) return;
+
+  if (!hasScriptConfig()) {
+    tbody.innerHTML = '';
+    statusEmpty?.classList.remove('hidden');
+    statusEmpty.querySelector('p').textContent = '스프레드시트 연동이 설정되지 않았습니다.';
+    return;
+  }
+
+  statusEmpty?.classList.add('hidden');
+  tbody.innerHTML = '<tr><td colspan="7" class="board-loading-cell">업무 현황을 불러오는 중...</td></tr>';
+
+  try {
+    const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
+    url.searchParams.set('action', 'projects');
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'load failed');
+    statusProjects = data.projects || [];
+    renderStatusTable();
+    if (isAdminLoggedIn()) {
+      migrateLocalProjectsIfNeeded();
+    }
+  } catch {
+    statusProjects = [];
+    tbody.innerHTML = '';
+    statusEmpty?.classList.remove('hidden');
+    statusEmpty.querySelector('p').textContent = '업무 현황을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+    updateStatusStats([]);
+  }
 }
 
 function isAdminLoggedIn() {
@@ -138,7 +177,7 @@ function renderStatusTable() {
         <td class="col-admin">
           <div class="admin-actions">
             <button type="button" class="btn-sm btn-edit" data-edit="${p.id}">수정</button>
-            <button type="button" class="btn-sm btn-delete" data-delete="${p.id}">삭제</button>
+            <button type="button" class="btn-sm btn-delete" data-delete="${p.row}">삭제</button>
           </div>
         </td>
       ` : ''}
@@ -148,7 +187,7 @@ function renderStatusTable() {
   updateStatusStats(projects);
 
   tbody.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', () => startEditProject(Number(btn.dataset.edit)));
+    btn.addEventListener('click', () => startEditProject(btn.dataset.edit));
   });
 
   tbody.querySelectorAll('[data-delete]').forEach(btn => {
@@ -228,6 +267,7 @@ function initStatusAdmin() {
       updateInquiryAdminBtn();
       updateInquiryAdminUI();
       showToast('관리자 로그인되었습니다.');
+      migrateLocalProjectsIfNeeded();
       if (adminPanel) {
         adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -274,39 +314,53 @@ function closeLoginModal() {
   loginForm?.reset();
 }
 
-function saveProjectFromForm() {
+async function saveProjectFromForm() {
   const form = document.getElementById('projectForm');
   const idInput = document.getElementById('projectId');
-  const projects = getProjects();
+  const submitBtn = document.getElementById('projectSubmitBtn');
+  const isEdit = Boolean(idInput.value);
+
+  if (!hasScriptConfig()) {
+    showToast('SCRIPT_URL 이 설정되지 않았습니다.');
+    return;
+  }
 
   const project = {
-    id: idInput.value ? Number(idInput.value) : Date.now(),
+    id: idInput.value || null,
     name: form.name.value.trim(),
     assignee: form.assignee.value.trim(),
     start: form.start.value,
     end: form.end.value,
     progress: Math.min(100, Math.max(0, Number(form.progress.value) || 0)),
     status: form.status.value,
-    content: form.content.value.trim(),
-    updatedAt: new Date().toISOString()
+    content: form.content.value.trim()
   };
 
-  const existingIndex = projects.findIndex(p => p.id === project.id);
-  if (existingIndex >= 0) {
-    projects[existingIndex] = project;
-    showToast('업무가 수정되었습니다.');
-  } else {
-    projects.unshift(project);
-    showToast('업무가 등록되었습니다.');
-  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = isEdit ? '수정 중...' : '등록 중...';
 
-  saveProjects(projects);
-  resetProjectForm();
-  renderStatusTable();
+  try {
+    const data = await apiPost({
+      action: 'project-save',
+      token: getAdminPassword(),
+      project
+    });
+
+    if (!data.success) throw new Error(data.error || 'save failed');
+
+    await loadProjects();
+    resetProjectForm();
+    showToast(isEdit ? '업무가 수정되었습니다.' : '업무가 등록되었습니다.');
+  } catch {
+    showToast('업무 저장에 실패했습니다.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = isEdit ? '수정' : '등록';
+  }
 }
 
 function startEditProject(id) {
-  const project = getProjects().find(p => p.id === id);
+  const project = getProjects().find(p => String(p.id) === String(id));
   if (!project) return;
 
   document.getElementById('projectId').value = project.id;
@@ -323,15 +377,30 @@ function startEditProject(id) {
   document.getElementById('adminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function deleteProject(id) {
-  const project = getProjects().find(p => p.id === id);
+async function deleteProject(row) {
+  const project = getProjects().find(p => p.row === row);
   if (!project) return;
   if (!confirm(`"${project.name}" 항목을 삭제하시겠습니까?`)) return;
 
-  const projects = getProjects().filter(p => p.id !== id);
-  saveProjects(projects);
-  renderStatusTable();
-  showToast('업무가 삭제되었습니다.');
+  if (!hasScriptConfig()) {
+    showToast('SCRIPT_URL 이 설정되지 않았습니다.');
+    return;
+  }
+
+  try {
+    const data = await apiPost({
+      action: 'project-delete',
+      token: getAdminPassword(),
+      row
+    });
+
+    if (!data.success) throw new Error(data.error || 'delete failed');
+
+    await loadProjects();
+    showToast('업무가 삭제되었습니다.');
+  } catch {
+    showToast('업무 삭제에 실패했습니다.');
+  }
 }
 
 function resetProjectForm() {

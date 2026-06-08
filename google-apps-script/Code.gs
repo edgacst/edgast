@@ -1,25 +1,29 @@
 /**
- * edgacst 문의게시판 API (목록 조회 · 관리자 답변 · 자동 백업)
+ * edgacst API (문의게시판 · 개발업무현황 · 백업)
  *
  * [최초 1회 설정]
- * 1. 문의 스프레드시트 → 확장 프로그램 → Apps Script
+ * 1. 스프레드시트 → 확장 프로그램 → Apps Script
  * 2. testAuth 실행 → 권한 허용
- * 3. setupDailyBackup 실행 (매일 자동 백업)
+ * 3. setupDailyBackup 실행 (선택)
  * 4. 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
  * 5. 배포 URL을 js/config.js 의 SCRIPT_URL 에 입력
  *
- * 문의 등록은 사이트 폼 → Google Form 으로 저장됩니다.
- * 이 스크립트는 목록 표시·관리자 답변·백업만 담당합니다.
+ * 시트 구성:
+ * - Form_Responses (또는 폼 응답): 문의
+ * - 개발업무: 개발 업무현황
+ * - 문의백업: 문의 자동 백업
  */
 
 const SPREADSHEET_ID = '1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI';
 const ADMIN_TOKEN = '1324';
 const BACKUP_SHEET_NAME = '문의백업';
+const PROJECT_SHEET_NAME = '개발업무';
 
 function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('edgacst')
+      .addItem('연결 테스트', 'testAuth')
       .addItem('지금 백업', 'backupInquiries')
       .addItem('일일 자동 백업 설정', 'setupDailyBackup')
       .addToUi();
@@ -29,9 +33,11 @@ function onOpen() {
 }
 
 function testAuth() {
-  const sheet = getResponseSheet_();
-  const count = Math.max(sheet.getLastRow() - 1, 0);
-  const msg = '연결 성공\n시트: ' + sheet.getName() + '\n문의 수: ' + count;
+  const inquirySheet = getResponseSheet_();
+  const projectSheet = getProjectsSheet_();
+  const inquiryCount = Math.max(inquirySheet.getLastRow() - 1, 0);
+  const projectCount = Math.max(projectSheet.getLastRow() - 1, 0);
+  const msg = '연결 성공\n문의 시트: ' + inquirySheet.getName() + ' (' + inquiryCount + '건)\n업무 시트: ' + projectSheet.getName() + ' (' + projectCount + '건)';
   Logger.log(msg);
   try {
     SpreadsheetApp.getUi().alert(msg);
@@ -78,6 +84,10 @@ function doGet(e) {
       return json_(listInquiries_(params.token === ADMIN_TOKEN));
     }
 
+    if (action === 'projects') {
+      return json_(listProjects_());
+    }
+
     return json_({ success: false, error: 'unknown action' });
   } catch (err) {
     return json_({ success: false, error: String(err) });
@@ -96,10 +106,152 @@ function doPost(e) {
       return handleDelete_(data);
     }
 
+    if (data.action === 'project-save') {
+      return handleProjectSave_(data);
+    }
+
+    if (data.action === 'project-delete') {
+      return handleProjectDelete_(data);
+    }
+
     return json_({ success: false, error: 'invalid action' });
   } catch (err) {
     return json_({ success: false, error: String(err) });
   }
+}
+
+function listProjects_() {
+  const sheet = getProjectsSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) {
+    return { success: true, projects: [] };
+  }
+
+  const headers = values[0].map(String);
+  const projects = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const item = parseProjectRow_(values[i], headers, i + 1);
+    if (!item.name) continue;
+    projects.push(item);
+  }
+
+  projects.sort(function (a, b) {
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  });
+
+  return { success: true, projects: projects };
+}
+
+function handleProjectSave_(data) {
+  if (data.token !== ADMIN_TOKEN) {
+    return json_({ success: false, error: 'unauthorized' });
+  }
+
+  const project = data.project || {};
+  const sheet = getProjectsSheet_();
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', "yyyy-MM-dd'T'HH:mm:ss");
+  const id = project.id ? String(project.id) : String(Date.now());
+  const rowValues = [
+    id,
+    String(project.name || '').trim(),
+    String(project.assignee || '').trim(),
+    String(project.start || ''),
+    String(project.end || ''),
+    Number(project.progress) || 0,
+    String(project.status || 'waiting'),
+    String(project.content || '').trim(),
+    now
+  ];
+
+  const existingRow = findProjectRowById_(sheet, id);
+  if (existingRow > 0) {
+    sheet.getRange(existingRow, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+
+  return json_({ success: true, id: id });
+}
+
+function handleProjectDelete_(data) {
+  if (data.token !== ADMIN_TOKEN) {
+    return json_({ success: false, error: 'unauthorized' });
+  }
+
+  const row = Number(data.row);
+  if (!row || row < 2) {
+    return json_({ success: false, error: 'invalid row' });
+  }
+
+  const sheet = getProjectsSheet_();
+  if (row > sheet.getLastRow()) {
+    return json_({ success: false, error: 'row not found' });
+  }
+
+  sheet.deleteRow(row);
+  return json_({ success: true });
+}
+
+function getProjectsSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(PROJECT_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(PROJECT_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 9).setValues([[
+      'ID', '프로젝트명', '담당', '시작일', '목표일', '진행률', '상태', '개발내용', '수정일시'
+    ]]);
+    sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+    sheet.setTabColor('#3b82f6');
+  }
+
+  return sheet;
+}
+
+function findProjectRowById_(sheet, id) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      return i + 2;
+    }
+  }
+  return 0;
+}
+
+function parseProjectRow_(row, headers, rowIndex) {
+  const get = function () {
+    const names = Array.prototype.slice.call(arguments);
+    for (let i = 0; i < names.length; i++) {
+      const idx = headers.indexOf(names[i]);
+      if (idx >= 0) return row[idx];
+    }
+    return '';
+  };
+
+  return {
+    row: rowIndex,
+    id: Number(get('ID')) || String(get('ID')),
+    name: String(get('프로젝트명') || ''),
+    assignee: String(get('담당') || ''),
+    start: formatDateValue_(get('시작일')),
+    end: formatDateValue_(get('목표일')),
+    progress: Number(get('진행률')) || 0,
+    status: String(get('상태') || 'waiting'),
+    content: String(get('개발내용') || ''),
+    updatedAt: String(get('수정일시') || '')
+  };
+}
+
+function formatDateValue_(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, 'Asia/Seoul', 'yyyy-MM-dd');
+  }
+  return String(value).substring(0, 10);
 }
 
 function listInquiries_(isAdmin) {
@@ -187,7 +339,7 @@ function getResponseSheet_() {
     const sheets = ss.getSheets();
     for (let i = 0; i < sheets.length; i++) {
       const candidate = sheets[i];
-      if (candidate.getName() === BACKUP_SHEET_NAME) continue;
+      if (candidate.getName() === BACKUP_SHEET_NAME || candidate.getName() === PROJECT_SHEET_NAME) continue;
       const header = String(candidate.getRange(1, 1).getValue() || '');
       if (
         header === '타임스탬프' ||

@@ -16,10 +16,43 @@
 const SPREADSHEET_ID = '1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI';
 const ADMIN_TOKEN = '1324';
 
-/** 에디터에서 선택 후 ▶ 실행 → 권한 승인 */
+/**
+ * 1단계: 연결 테스트 (▶ 실행)
+ * - 스프레드시트 1행에 헤더(등록일시, 이름...) 가 생기면 성공
+ * - Logger 로그는 왼쪽 「실행」목록 → 해당 실행 클릭 → 로그 탭에서 확인
+ */
 function testAuth() {
   const sheet = getOrCreateSheet_();
-  Logger.log('연결 성공: ' + sheet.getName());
+  const msg = '연결 성공\n시트: ' + sheet.getName() + '\n데이터 행 수: ' + Math.max(sheet.getLastRow() - 1, 0);
+  Logger.log(msg);
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch (e) {
+    Logger.log('UI 알림 불가(정상). 스프레드시트를 직접 확인하세요.');
+  }
+}
+
+/**
+ * 2단계: 저장 테스트 (testAuth 성공 후 ▶ 실행)
+ * - 스프레드시트에 「연결 테스트」 행이 추가되면 성공
+ */
+function testWrite() {
+  const sheet = getOrCreateSheet_();
+  sheet.appendRow([
+    Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'),
+    '테스트',
+    'test@example.com',
+    '010-0000-0000',
+    '연결 테스트',
+    'Apps Script 저장 테스트입니다.'
+  ]);
+  const msg = '테스트 문의가 스프레드시트에 추가되었습니다.';
+  Logger.log(msg);
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch (e) {
+    Logger.log(msg);
+  }
 }
 
 function doPost(e) {

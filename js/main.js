@@ -98,7 +98,7 @@ async function loadProjects() {
   try {
     const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
     url.searchParams.set('action', 'projects');
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { redirect: 'follow' });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'load failed');
     statusProjects = data.projects || [];
@@ -106,11 +106,19 @@ async function loadProjects() {
     if (isAdminLoggedIn()) {
       migrateLocalProjectsIfNeeded();
     }
-  } catch {
+  } catch (err) {
     statusProjects = [];
     tbody.innerHTML = '';
     statusEmpty?.classList.remove('hidden');
-    statusEmpty.querySelector('p').textContent = '업무 현황을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+    const message = String(err?.message || '');
+    const emptyText = statusEmpty.querySelector('p');
+    if (message.includes('unknown action')) {
+      emptyText.textContent = '업무 API가 배포되지 않았습니다. 스프레드시트 → Apps Script에서 Code.gs를 저장한 뒤, 기존 웹앱 배포를 「새 버전」으로 다시 배포해 주세요.';
+    } else if (message) {
+      emptyText.textContent = `업무 현황을 불러오지 못했습니다. (${message})`;
+    } else {
+      emptyText.textContent = '업무 현황을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+    }
     updateStatusStats([]);
   }
 }

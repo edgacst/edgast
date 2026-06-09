@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initStatusPage();
   initPortfolioPage();
   initHomePortfolio();
+  initHomeStats();
+  initFaqPage();
   initFooterAdmin();
 });
 
@@ -241,6 +243,9 @@ function renderProjectViews() {
   if (document.getElementById('homePortfolioGrid')) {
     renderHomePortfolio();
   }
+  if (document.getElementById('homeStats')) {
+    renderHomeStats();
+  }
 }
 
 function isAdminLoggedIn() {
@@ -396,6 +401,74 @@ function initPortfolioPage() {
   });
 
   loadProjects();
+}
+
+function initHomeStats() {
+  const section = document.getElementById('homeStats');
+  if (!section) return;
+
+  const cached = getProjectCache() || getProjectCacheStale();
+  if (cached?.length) {
+    statusProjects = cached;
+    renderHomeStats();
+    return;
+  }
+
+  if (!hasScriptConfig()) {
+    renderHomeStats();
+    return;
+  }
+
+  fetchProjectsFromApi()
+    .then((projects) => {
+      statusProjects = projects;
+      setProjectCache(projects);
+      renderHomeStats();
+    })
+    .catch(() => renderHomeStats());
+}
+
+function renderHomeStats() {
+  const projects = getProjects();
+  const counts = { total: projects.length, progress: 0, review: 0, done: 0 };
+  projects.forEach((p) => {
+    if (p.status === 'progress') counts.progress++;
+    else if (p.status === 'review') counts.review++;
+    else if (p.status === 'done') counts.done++;
+  });
+
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  set('homeStatTotal', counts.total);
+  set('homeStatProgress', counts.progress);
+  set('homeStatDone', counts.done);
+  set('homeStatReview', counts.review);
+}
+
+function initFaqPage() {
+  const list = document.getElementById('faqList');
+  if (!list) return;
+
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('.faq-question');
+    if (!btn) return;
+
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+
+    list.querySelectorAll('.faq-item.open').forEach((openItem) => {
+      openItem.classList.remove('open');
+      openItem.querySelector('.faq-question')?.setAttribute('aria-expanded', 'false');
+    });
+
+    if (!isOpen) {
+      item.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  });
 }
 
 function initHomePortfolio() {

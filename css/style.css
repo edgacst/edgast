@@ -32,40 +32,43 @@
   --page-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@view-transition {
-  navigation: auto;
-}
-
-html.page-enter-pending body {
+html.page-enter-pending main,
+html.page-enter-pending .footer {
   opacity: 0;
   transform: translateY(14px);
 }
 
-body {
+main,
+.footer {
   transition:
     opacity var(--page-transition-duration) var(--page-transition-ease),
     transform var(--page-transition-duration) var(--page-transition-ease);
 }
 
-body.page-enter-active {
+main.page-enter-active,
+.footer.page-enter-active {
   opacity: 1;
   transform: translateY(0);
 }
 
-body.page-leave-active {
+main.page-leave-active,
+.footer.page-leave-active {
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.page-enter-pending body,
-  body.page-leave-active {
+  html.page-enter-pending main,
+  html.page-enter-pending .footer,
+  main.page-leave-active,
+  .footer.page-leave-active {
     opacity: 1;
     transform: none;
   }
 
-  body {
+  main,
+  .footer {
     transition: none;
   }
 }

@@ -300,34 +300,43 @@ body {
 .hero-title {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: clamp(2.85rem, 8vw, 5rem);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.25;
   margin-bottom: 28px;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
+  overflow: visible;
+}
+
+.hero-title-line,
+.hero-title-accent-wrap {
+  display: block;
+  overflow: visible;
+  padding-bottom: 0.06em;
 }
 
 .hero-title-line {
-  display: block;
   color: #f8fafc;
 }
 
+.hero-title-accent-wrap {
+  line-height: 1.25;
+}
+
 .hero-title-accent {
-  display: block;
-  background: linear-gradient(
+  display: inline-block;
+  color: #67e8f9;
+  background-image: linear-gradient(
     92deg,
     #38bdf8 0%,
-    #60a5fa 22%,
-    #818cf8 48%,
-    #22d3ee 72%,
-    #38bdf8 100%
+    #60a5fa 30%,
+    #818cf8 55%,
+    #22d3ee 100%
   );
-  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
-  animation: hero-gradient-flow 7s ease-in-out infinite;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-desc {
@@ -393,12 +402,11 @@ body {
   }
 }
 
-@keyframes hero-gradient-flow {
-  0%, 100% {
-    background-position: 0% center;
-  }
-  50% {
-    background-position: 100% center;
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero-title-accent {
+    -webkit-text-fill-color: currentColor;
+    color: #67e8f9;
+    background-image: none;
   }
 }
 
@@ -410,10 +418,6 @@ body {
   .hero-reveal {
     opacity: 1;
     transform: none;
-    animation: none;
-  }
-
-  .hero-title-accent {
     animation: none;
   }
 }

@@ -3,7 +3,8 @@
  *
  * [최초 1회 설정]
  * 1. 스프레드시트 → 확장 프로그램 → Apps Script
- * 2. testAuth 실행 → 스프레드시트·Drive 권한 허용 (이미지 첨부 필수)
+ * 2. testAuth 실행 → 「권한 제공」 클릭 → Drive 포함 전체 허용 (이미지 첨부 필수)
+ *    (권한 오류 시: 프로젝트 설정 → appsscript.json 표시 → oauthScopes 확인)
  * 3. setupDailyBackup 실행 (선택)
  * 4. 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
  * 5. 배포 URL을 js/config.js 의 SCRIPT_URL 에 입력

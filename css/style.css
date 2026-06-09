@@ -639,6 +639,18 @@ body {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.cta .btn-outline-dark {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cta .btn-outline-dark:hover {
+  color: var(--color-primary);
+  background: #fff;
+  border-color: #fff;
+}
+
 /* Page Hero */
 .page-hero {
   position: relative;

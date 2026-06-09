@@ -138,7 +138,7 @@ async function loadProjects(options = {}) {
     renderStatusTable();
   } else {
     statusEmpty?.classList.add('hidden');
-    tbody.innerHTML = '<tr><td colspan="2" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
   }
 
   try {
@@ -205,37 +205,6 @@ function renderStatusTable() {
   updateStatusStats(projects);
 }
 
-function renderProjectMeta(project) {
-  return `
-    <div class="status-row-meta">
-      <div class="status-meta-item">
-        <span class="status-meta-label">담당</span>
-        <span class="status-meta-value">${escapeHtml(project.assignee || '-')}</span>
-      </div>
-      <div class="status-meta-item">
-        <span class="status-meta-label">시작일</span>
-        <span class="status-meta-value">${escapeHtml(project.start || '-')}</span>
-      </div>
-      <div class="status-meta-item">
-        <span class="status-meta-label">목표일</span>
-        <span class="status-meta-value">${escapeHtml(project.end || '-')}</span>
-      </div>
-      <div class="status-meta-item">
-        <span class="status-meta-label">상태</span>
-        <span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span>
-      </div>
-      <div class="status-meta-item status-meta-progress">
-        <span class="status-meta-label">진행률</span>
-        <div class="progress-bar">
-          <div class="progress-track">
-            <div class="progress-fill" style="width: ${project.progress}%"></div>
-          </div>
-          <span class="progress-text">${project.progress}%</span>
-        </div>
-      </div>
-    </div>`;
-}
-
 function renderProjectItem(project, isAdmin, number) {
   const name = escapeHtml(project.name || '(제목 없음)');
   const adminBlock = isAdmin
@@ -252,14 +221,25 @@ function renderProjectItem(project, isAdmin, number) {
     <tr class="board-row status-list-row" data-id="${project.id}">
       <td class="board-td-num">${number}</td>
       <td class="board-td-subject">
-        <button type="button" class="board-title-btn status-title-btn" aria-expanded="false">
+        <button type="button" class="board-title-btn" aria-expanded="false">
           <span class="board-subject-text">${name}</span>
         </button>
-        ${renderProjectMeta(project)}
+      </td>
+      <td class="status-td-assignee">${escapeHtml(project.assignee || '-')}</td>
+      <td class="status-td-date">${escapeHtml(project.start || '-')}</td>
+      <td class="status-td-date">${escapeHtml(project.end || '-')}</td>
+      <td class="status-td-status"><span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span></td>
+      <td class="status-td-progress">
+        <div class="progress-bar status-inline-progress">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: ${project.progress}%"></div>
+          </div>
+          <span class="progress-text">${project.progress}%</span>
+        </div>
       </td>
     </tr>
     <tr class="board-detail-row" data-id="${project.id}">
-      <td colspan="2">
+      <td colspan="7">
         <div class="board-detail">
           <div class="board-detail-block">
             <div class="board-detail-label">개발 내용</div>

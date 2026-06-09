@@ -9,7 +9,7 @@ const GOOGLE_CONFIG = {
     message: 'entry.402639363'
   },
   // Apps Script 웹앱 배포 URL (google-apps-script/Code.gs 배포 후 입력)
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxWVKqfnIBB1a-DwxE0Hfo7jdL6ipRRy-NILOuaZNTlD8Yyma4HECL0TivBRyXXK0B_Tw/exec',
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxtkPa2nTWTGN3kx3d-WH6gwxeMHxu5SNaFCoG7tete8YDQyEXV5ry_bvsceohpKPeocQ/exec',
   SPREADSHEET_URL: 'https://docs.google.com/spreadsheets/d/1lJVAmeBNcyaGQDR9wfeNzqUDIY9K4aN3uyWTxph4hiI/edit',
   // 스프레드시트 탭: Form_Responses(문의), 개발업무(업무현황), 문의백업
   PROJECT_SHEET_NAME: '개발업무'

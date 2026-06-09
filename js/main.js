@@ -509,6 +509,10 @@ function getPageTransitionTargets() {
 }
 
 function initPageTransitions() {
+  document.body.classList.remove('page-leave-active', 'page-enter-active');
+  document.body.style.opacity = '';
+  document.body.style.transform = '';
+
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.documentElement.classList.remove('page-enter-pending');
     sessionStorage.removeItem('edgacst-page-transition');

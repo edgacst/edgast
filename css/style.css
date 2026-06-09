@@ -30,6 +30,7 @@
   --transition: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   --page-transition-duration: 0.42s;
   --page-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --header-height: 76px;
 }
 
 html.page-enter-pending main,
@@ -98,14 +99,18 @@ body {
 
 /* Header */
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 100;
+  left: 0;
+  right: 0;
+  z-index: 200;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   border-bottom: 1px solid transparent;
   transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
+  transform: none !important;
+  opacity: 1 !important;
 }
 
 .header.header-scrolled {
@@ -255,7 +260,7 @@ body {
   position: relative;
   z-index: 1;
   color: #fff;
-  padding: 96px 24px 88px;
+  padding: calc(72px + var(--header-height)) 24px 88px;
   max-width: 720px;
   animation: hero-fade-in 1s ease both;
 }
@@ -588,7 +593,7 @@ body {
   overflow: hidden;
   background: linear-gradient(145deg, #0a1929 0%, var(--color-primary) 42%, #245a87 100%);
   color: #fff;
-  padding: 76px 0;
+  padding: calc(52px + var(--header-height)) 0 76px;
   text-align: center;
 }
 

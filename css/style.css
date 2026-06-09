@@ -1978,11 +1978,145 @@ body {
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+}
+
+.footer-legal a {
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.footer-legal a:hover,
+.footer-legal a[aria-current="page"] {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.footer-legal-divider {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.8rem;
+}
+
 .footer-copy {
   font-size: 0.8rem;
   opacity: 0.6;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 20px;
+}
+
+/* Legal pages */
+.legal {
+  padding-top: 0;
+}
+
+.legal-doc {
+  max-width: 820px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 44px;
+  box-shadow: var(--shadow-sm);
+}
+
+.legal-lead {
+  font-size: 0.98rem;
+  line-height: 1.8;
+  color: var(--color-text);
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.legal-doc h2 {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 32px 0 12px;
+}
+
+.legal-doc h2:first-of-type {
+  margin-top: 0;
+}
+
+.legal-doc p {
+  font-size: 0.94rem;
+  line-height: 1.8;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.legal-doc a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.legal-list {
+  margin: 0 0 16px;
+  padding-left: 1.25rem;
+  font-size: 0.94rem;
+  line-height: 1.8;
+  color: var(--color-text);
+}
+
+.legal-list li {
+  margin-bottom: 8px;
+}
+
+.legal-list ul {
+  margin-top: 8px;
+  padding-left: 1.1rem;
+}
+
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 16px 0 20px;
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.legal-table th,
+.legal-table td {
+  border: 1px solid var(--color-border);
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-table th {
+  background: var(--color-bg);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.legal-contact {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin: 12px 0 4px;
+}
+
+.legal-contact p {
+  margin-bottom: 6px;
+}
+
+@media (max-width: 768px) {
+  .legal-doc {
+    padding: 28px 22px;
+  }
 }
 
 /* Toast */

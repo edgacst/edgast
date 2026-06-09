@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   initPageTransitions();
+  initHeaderScroll();
   initMobileMenu();
   initHeroVideo();
   prefetchInquiries();
@@ -489,6 +490,18 @@ function formatDateTime(isoString) {
   } catch {
     return isoString;
   }
+}
+
+function initHeaderScroll() {
+  const header = document.querySelector('.header');
+  if (!header) return;
+
+  const onScroll = () => {
+    header.classList.toggle('header-scrolled', window.scrollY > 10);
+  };
+
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
 }
 
 function initPageTransitions() {

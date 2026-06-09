@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  initActiveNav();
   initPageTransitions();
   initHeaderScroll();
   initMobileMenu();
@@ -490,6 +491,24 @@ function formatDateTime(isoString) {
   } catch {
     return isoString;
   }
+}
+
+function getCurrentPageFile() {
+  const path = location.pathname.replace(/\/$/, '');
+  const last = path.split('/').filter(Boolean).pop() || '';
+  return !last || !last.includes('.') ? 'index.html' : last.split('?')[0];
+}
+
+function initActiveNav() {
+  const nav = document.querySelector('.nav');
+  if (!nav) return;
+
+  const current = getCurrentPageFile();
+  nav.querySelectorAll('.nav-link').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const linkFile = href.split('/').pop()?.split('?')[0] || '';
+    link.classList.toggle('active', linkFile === current);
+  });
 }
 
 function initHeaderScroll() {

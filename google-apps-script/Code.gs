@@ -83,8 +83,8 @@ function doGet(e) {
     if (action === 'health') {
       return json_({
         success: true,
-        version: 2,
-        features: ['list', 'projects', 'reply', 'delete', 'project-save', 'project-delete']
+        version: 3,
+        features: ['list', 'projects', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image']
       });
     }
 
@@ -120,6 +120,10 @@ function doPost(e) {
 
     if (data.action === 'project-delete') {
       return handleProjectDelete_(data);
+    }
+
+    if (data.action === 'project-upload-image') {
+      return handleProjectUploadImage_(data);
     }
 
     return json_({ success: false, error: 'invalid action' });
@@ -158,19 +162,26 @@ function handleProjectSave_(data) {
 
   const project = data.project || {};
   const sheet = getProjectsSheet_();
+  ensureProjectImageColumn_(sheet);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
   const now = Utilities.formatDate(new Date(), 'Asia/Seoul', "yyyy-MM-dd'T'HH:mm:ss");
   const id = project.id ? String(project.id) : String(Date.now());
-  const rowValues = [
-    id,
-    String(project.name || '').trim(),
-    String(project.assignee || '').trim(),
-    String(project.start || ''),
-    String(project.end || ''),
-    Number(project.progress) || 0,
-    String(project.status || 'waiting'),
-    String(project.content || '').trim(),
-    now
-  ];
+  const imagesJson = JSON.stringify(Array.isArray(project.images) ? project.images : []);
+  const fieldMap = {
+    'ID': id,
+    '프로젝트명': String(project.name || '').trim(),
+    '담당': String(project.assignee || '').trim(),
+    '시작일': String(project.start || ''),
+    '목표일': String(project.end || ''),
+    '진행률': Number(project.progress) || 0,
+    '상태': String(project.status || 'waiting'),
+    '개발내용': String(project.content || '').trim(),
+    '이미지': imagesJson,
+    '수정일시': now
+  };
+  const rowValues = headers.map(function (header) {
+    return fieldMap[header] !== undefined ? fieldMap[header] : '';
+  });
 
   const existingRow = findProjectRowById_(sheet, id);
   if (existingRow > 0) {
@@ -180,6 +191,82 @@ function handleProjectSave_(data) {
   }
 
   return json_({ success: true, id: id });
+}
+
+function handleProjectUploadImage_(data) {
+  if (data.token !== ADMIN_TOKEN) {
+    return json_({ success: false, error: 'unauthorized' });
+  }
+
+  const base64 = String(data.base64 || '');
+  const mimeType = String(data.mimeType || 'image/jpeg');
+  const fileName = String(data.fileName || 'image.jpg');
+
+  if (!base64) {
+    return json_({ success: false, error: 'no image data' });
+  }
+
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowed.indexOf(mimeType) < 0) {
+    return json_({ success: false, error: 'unsupported type' });
+  }
+
+  const bytes = Utilities.base64Decode(base64);
+  const maxSize = 2 * 1024 * 1024;
+  if (bytes.length > maxSize) {
+    return json_({ success: false, error: 'file too large' });
+  }
+
+  const folder = getOrCreateUploadFolder_();
+  const blob = Utilities.newBlob(bytes, mimeType, fileName);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return json_({
+    success: true,
+    url: 'https://drive.google.com/uc?export=view&id=' + file.getId()
+  });
+}
+
+function getOrCreateUploadFolder_() {
+  const folderName = 'edgacst-uploads';
+  const folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return DriveApp.createFolder(folderName);
+}
+
+function ensureProjectImageColumn_(sheet) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  if (headers.indexOf('이미지') >= 0) {
+    return;
+  }
+
+  const updatedIdx = headers.indexOf('수정일시');
+  if (updatedIdx >= 0) {
+    sheet.insertColumnBefore(updatedIdx + 1);
+    sheet.getRange(1, updatedIdx + 1).setValue('이미지').setFontWeight('bold');
+    return;
+  }
+
+  sheet.getRange(1, lastCol + 1).setValue('이미지').setFontWeight('bold');
+}
+
+function parseProjectImages_(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(function (url) {
+      return typeof url === 'string' && url.indexOf('http') === 0;
+    });
+  } catch (e) {
+    return [];
+  }
 }
 
 function handleProjectDelete_(data) {
@@ -207,10 +294,10 @@ function getProjectsSheet_() {
 
   if (!sheet) {
     sheet = ss.insertSheet(PROJECT_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 9).setValues([[
-      'ID', '프로젝트명', '담당', '시작일', '목표일', '진행률', '상태', '개발내용', '수정일시'
+    sheet.getRange(1, 1, 1, 10).setValues([[
+      'ID', '프로젝트명', '담당', '시작일', '목표일', '진행률', '상태', '개발내용', '이미지', '수정일시'
     ]]);
-    sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
     sheet.setTabColor('#3b82f6');
   }
 
@@ -250,6 +337,7 @@ function parseProjectRow_(row, headers, rowIndex) {
     progress: Number(get('진행률')) || 0,
     status: String(get('상태') || 'waiting'),
     content: String(get('개발내용') || ''),
+    images: parseProjectImages_(get('이미지')),
     updatedAt: String(get('수정일시') || '')
   };
 }

@@ -29,6 +29,11 @@ const INQUIRIES_CACHE_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
 let statusProjects = [];
+let projectImageUrls = [];
+
+const MAX_PROJECT_IMAGES = 5;
+const MAX_PROJECT_IMAGE_SIZE = 2 * 1024 * 1024;
+const ALLOWED_PROJECT_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 function initStatusPage() {
   const tbody = document.getElementById('statusTableBody');
@@ -36,6 +41,7 @@ function initStatusPage() {
 
   localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
   initStatusAdmin();
+  initProjectImages();
 
   tbody.addEventListener('click', (e) => {
     const titleBtn = e.target.closest('.board-title-btn');
@@ -97,7 +103,8 @@ async function migrateLocalProjectsIfNeeded() {
           end: project.end,
           progress: project.progress,
           status: project.status,
-          content: project.content
+          content: project.content,
+          images: project.images || []
         }
       });
     }
@@ -225,6 +232,8 @@ function renderProjectItem(project, isAdmin, number) {
       </td>`
     : '';
 
+  const imagesBlock = renderProjectDetailImages(project.images);
+
   return `
     <tr class="board-row status-list-row" data-id="${project.id}">
       <td class="board-td-num">${number}</td>
@@ -254,9 +263,25 @@ function renderProjectItem(project, isAdmin, number) {
             <div class="board-detail-label">개발 내용</div>
             <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
           </div>
+          ${imagesBlock}
         </div>
       </td>
     </tr>`;
+}
+
+function renderProjectDetailImages(images) {
+  if (!Array.isArray(images) || !images.length) return '';
+
+  const items = images.map(url => `
+    <a href="${escapeHtml(url)}" class="project-detail-image-link" target="_blank" rel="noopener noreferrer">
+      <img src="${escapeHtml(url)}" alt="첨부 이미지" loading="lazy">
+    </a>`).join('');
+
+  return `
+    <div class="board-detail-block">
+      <div class="board-detail-label">첨부 이미지</div>
+      <div class="project-detail-images">${items}</div>
+    </div>`;
 }
 
 function updateStatusStats(projects) {
@@ -349,6 +374,135 @@ function initStatusAdmin() {
   projectCancelBtn?.addEventListener('click', resetProjectForm);
 }
 
+function initProjectImages() {
+  const input = document.getElementById('projectImages');
+  const preview = document.getElementById('projectImagePreview');
+  if (!input || !preview) return;
+
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+
+    const available = MAX_PROJECT_IMAGES - projectImageUrls.length;
+    if (available <= 0) {
+      showToast(`이미지는 최대 ${MAX_PROJECT_IMAGES}장까지 첨부할 수 있습니다.`);
+      input.value = '';
+      return;
+    }
+
+    const accepted = [];
+    for (const file of files.slice(0, available)) {
+      if (!ALLOWED_PROJECT_IMAGE_TYPES.includes(file.type)) {
+        showToast('JPG, PNG, GIF, WEBP 형식만 업로드할 수 있습니다.');
+        continue;
+      }
+      if (file.size > MAX_PROJECT_IMAGE_SIZE) {
+        showToast('이미지는 파일당 2MB 이하만 업로드할 수 있습니다.');
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    if (!accepted.length) {
+      input.value = '';
+      return;
+    }
+
+    accepted.forEach(file => {
+      const objectUrl = URL.createObjectURL(file);
+      projectImageUrls.push({ url: objectUrl, file, isLocal: true });
+    });
+
+    if (files.length > available) {
+      showToast(`이미지는 최대 ${MAX_PROJECT_IMAGES}장까지 첨부할 수 있습니다.`);
+    }
+
+    input.value = '';
+    renderProjectImagePreview();
+  });
+
+  preview.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-remove-image]');
+    if (!removeBtn) return;
+    removeProjectImage(Number(removeBtn.dataset.removeImage));
+  });
+}
+
+function renderProjectImagePreview() {
+  const preview = document.getElementById('projectImagePreview');
+  if (!preview) return;
+
+  preview.innerHTML = projectImageUrls.map((item, index) => `
+    <div class="project-image-thumb">
+      <img src="${escapeHtml(item.url)}" alt="미리보기">
+      <button type="button" class="project-image-remove" data-remove-image="${index}" aria-label="이미지 삭제">×</button>
+    </div>`).join('');
+}
+
+function removeProjectImage(index) {
+  const item = projectImageUrls[index];
+  if (!item) return;
+  if (item.isLocal && item.url) {
+    URL.revokeObjectURL(item.url);
+  }
+  projectImageUrls.splice(index, 1);
+  renderProjectImagePreview();
+}
+
+function clearProjectImagePreview() {
+  projectImageUrls.forEach(item => {
+    if (item.isLocal && item.url) {
+      URL.revokeObjectURL(item.url);
+    }
+  });
+  projectImageUrls = [];
+  const preview = document.getElementById('projectImagePreview');
+  if (preview) preview.innerHTML = '';
+  const input = document.getElementById('projectImages');
+  if (input) input.value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPendingProjectImages() {
+  const uploaded = [];
+
+  for (const item of projectImageUrls) {
+    if (!item.isLocal) {
+      uploaded.push(item.url);
+      continue;
+    }
+
+    const base64 = await fileToBase64(item.file);
+    const data = await apiPost({
+      action: 'project-upload-image',
+      token: getAdminPassword(),
+      base64,
+      mimeType: item.file.type,
+      fileName: item.file.name
+    });
+
+    if (!data.success || !data.url) {
+      throw new Error(data.error || 'upload failed');
+    }
+
+    uploaded.push(data.url);
+  }
+
+  return uploaded;
+}
+
 function updateAdminUI() {
   const isAdmin = isAdminLoggedIn();
   const adminPanel = document.getElementById('adminPanel');
@@ -404,13 +558,16 @@ async function saveProjectFromForm() {
     end: form.end.value,
     progress: Math.min(100, Math.max(0, Number(form.progress.value) || 0)),
     status: form.status.value,
-    content: form.content.value.trim()
+    content: form.content.value.trim(),
+    images: []
   };
 
   submitBtn.disabled = true;
   submitBtn.textContent = isEdit ? '수정 중...' : '등록 중...';
 
   try {
+    project.images = await uploadPendingProjectImages();
+
     const data = await apiPost({
       action: 'project-save',
       token: getAdminPassword(),
@@ -445,6 +602,10 @@ function startEditProject(id) {
   document.getElementById('projectContent').value = project.content || '';
   document.getElementById('projectSubmitBtn').textContent = '수정';
   document.getElementById('projectCancelBtn')?.classList.remove('hidden');
+
+  clearProjectImagePreview();
+  projectImageUrls = (project.images || []).map(url => ({ url, isLocal: false }));
+  renderProjectImagePreview();
 
   document.getElementById('adminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -483,6 +644,7 @@ function resetProjectForm() {
   document.getElementById('projectProgress').value = '0';
   document.getElementById('projectSubmitBtn').textContent = '등록';
   document.getElementById('projectCancelBtn')?.classList.add('hidden');
+  clearProjectImagePreview();
 }
 
 function formatDateTime(isoString) {

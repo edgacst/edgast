@@ -290,13 +290,29 @@ function renderProjectItem(project, isAdmin, number) {
     </tr>`;
 }
 
+function extractDriveFileId(url) {
+  const match = String(url || '').match(/(?:[?&]id=|\/d\/)([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
+function toDisplayImageUrl(url) {
+  const fileId = extractDriveFileId(url);
+  if (fileId) {
+    return `https://lh3.googleusercontent.com/d/${fileId}=w1000`;
+  }
+  return url;
+}
+
 function renderProjectDetailImages(images) {
   if (!Array.isArray(images) || !images.length) return '';
 
-  const items = images.map(url => `
-    <a href="${escapeHtml(url)}" class="project-detail-image-link" target="_blank" rel="noopener noreferrer">
-      <img src="${escapeHtml(url)}" alt="첨부 이미지" loading="lazy">
-    </a>`).join('');
+  const items = images.map(url => {
+    const displayUrl = toDisplayImageUrl(url);
+    return `
+    <a href="${escapeHtml(displayUrl)}" class="project-detail-image-link" target="_blank" rel="noopener noreferrer">
+      <img src="${escapeHtml(displayUrl)}" alt="첨부 이미지" loading="lazy">
+    </a>`;
+  }).join('');
 
   return `
     <div class="board-detail-block">

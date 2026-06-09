@@ -224,10 +224,27 @@ function handleProjectUploadImage_(data) {
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
+  const fileId = file.getId();
   return json_({
     success: true,
-    url: 'https://drive.google.com/uc?export=view&id=' + file.getId()
+    fileId: fileId,
+    url: getDriveImageUrl_(fileId)
   });
+}
+
+function getDriveImageUrl_(fileId, size) {
+  return 'https://lh3.googleusercontent.com/d/' + fileId + '=' + (size || 'w1000');
+}
+
+function extractDriveFileId_(url) {
+  const str = String(url || '');
+  const match = str.match(/(?:[?&]id=|\/d\/)([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
+function normalizeDriveImageUrl_(url) {
+  const fileId = extractDriveFileId_(url);
+  return fileId ? getDriveImageUrl_(fileId) : String(url || '');
 }
 
 function getOrCreateUploadFolder_() {
@@ -265,7 +282,7 @@ function parseProjectImages_(value) {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(function (url) {
       return typeof url === 'string' && url.indexOf('http') === 0;
-    });
+    }).map(normalizeDriveImageUrl_);
   } catch (e) {
     return [];
   }

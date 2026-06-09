@@ -2257,6 +2257,17 @@ body {
   line-height: 1.8;
 }
 
+.footer-info a {
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.footer-info a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
 .footer-admin-btn {
   display: inline-block;
   margin-bottom: 16px;

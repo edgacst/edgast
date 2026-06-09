@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initInquiryBoard();
   initInquiryForm();
   initStatusPage();
+  initPortfolioPage();
+  initHomePortfolio();
   initFooterAdmin();
 });
 
@@ -30,6 +32,7 @@ const DEFAULT_ADMIN_PASSWORD = '1324';
 
 let statusProjects = [];
 let projectImageUrls = [];
+let portfolioFilter = 'all';
 
 const MAX_PROJECT_IMAGES = 5;
 const MAX_PROJECT_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -142,13 +145,26 @@ async function migrateLocalProjectsIfNeeded() {
 async function loadProjects(options = {}) {
   const { forceRefresh = false } = options;
   const tbody = document.getElementById('statusTableBody');
+  const portfolioGrid = document.getElementById('portfolioGrid');
   const statusEmpty = document.getElementById('statusEmpty');
-  if (!tbody) return;
+  const portfolioEmpty = document.getElementById('portfolioEmpty');
+  const portfolioLoading = document.getElementById('portfolioLoading');
+  if (!tbody && !portfolioGrid) return;
 
   if (!hasScriptConfig()) {
-    tbody.innerHTML = '';
-    statusEmpty?.classList.remove('hidden');
-    statusEmpty.querySelector('p').textContent = '스프레드시트 연동이 설정되지 않았습니다.';
+    statusProjects = [];
+    if (tbody) {
+      tbody.innerHTML = '';
+      statusEmpty?.classList.remove('hidden');
+      statusEmpty.querySelector('p').textContent = '스프레드시트 연동이 설정되지 않았습니다.';
+    }
+    if (portfolioGrid) {
+      portfolioLoading?.classList.add('hidden');
+      portfolioGrid.innerHTML = '';
+      portfolioEmpty?.classList.remove('hidden');
+      portfolioEmpty.querySelector('p').textContent = '스프레드시트 연동이 설정되지 않았습니다.';
+      updatePortfolioCount(0);
+    }
     return;
   }
 
@@ -156,7 +172,7 @@ async function loadProjects(options = {}) {
     const freshCache = getProjectCache();
     if (freshCache) {
       statusProjects = freshCache;
-      renderStatusTable();
+      renderProjectViews();
       if (isAdminLoggedIn()) {
         migrateLocalProjectsIfNeeded();
       }
@@ -167,16 +183,23 @@ async function loadProjects(options = {}) {
   const staleCache = !forceRefresh ? getProjectCacheStale() : null;
   if (staleCache) {
     statusProjects = staleCache;
-    renderStatusTable();
+    renderProjectViews();
   } else {
     statusEmpty?.classList.add('hidden');
-    tbody.innerHTML = `<tr><td colspan="${getStatusTableColspan()}" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>`;
+    portfolioEmpty?.classList.add('hidden');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="${getStatusTableColspan()}" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>`;
+    }
+    if (portfolioGrid) {
+      portfolioGrid.innerHTML = '';
+      portfolioLoading?.classList.remove('hidden');
+    }
   }
 
   try {
     statusProjects = await fetchProjectsFromApi();
     setProjectCache(statusProjects);
-    renderStatusTable();
+    renderProjectViews();
     if (isAdminLoggedIn()) {
       migrateLocalProjectsIfNeeded();
     }
@@ -184,18 +207,39 @@ async function loadProjects(options = {}) {
     if (staleCache) return;
 
     statusProjects = [];
-    tbody.innerHTML = '';
-    statusEmpty?.classList.remove('hidden');
-    const message = String(err?.message || '');
-    const emptyText = statusEmpty.querySelector('p');
-    if (message.includes('unknown action')) {
-      emptyText.innerHTML = '업무 API가 아직 반영되지 않았습니다.<br>① Apps Script Code.gs에 <code>action === \'projects\'</code> 가 있는지 확인<br>② <strong>배포 → 배포 관리</strong>에서 웹앱 URL이 <code>config.js</code>의 SCRIPT_URL과 같은지 확인<br>③ 같지 않으면 <strong>새 배포</strong> 후 URL을 <code>js/config.js</code>에 넣기<br>④ 배포 확인: <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=health" target="_blank" rel="noopener">health</a> · <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=projects" target="_blank" rel="noopener">projects</a>';
-    } else if (message) {
-      emptyText.textContent = `업무 현황을 불러오지 못했습니다. (${message})`;
-    } else {
-      emptyText.textContent = '업무 현황을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+    if (tbody) {
+      tbody.innerHTML = '';
+      statusEmpty?.classList.remove('hidden');
+      const message = String(err?.message || '');
+      const emptyText = statusEmpty.querySelector('p');
+      if (message.includes('unknown action')) {
+        emptyText.innerHTML = '업무 API가 아직 반영되지 않았습니다.<br>① Apps Script Code.gs에 <code>action === \'projects\'</code> 가 있는지 확인<br>② <strong>배포 → 배포 관리</strong>에서 웹앱 URL이 <code>config.js</code>의 SCRIPT_URL과 같은지 확인<br>③ 같지 않으면 <strong>새 배포</strong> 후 URL을 <code>js/config.js</code>에 넣기<br>④ 배포 확인: <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=health" target="_blank" rel="noopener">health</a> · <a href="' + GOOGLE_CONFIG.SCRIPT_URL + '?action=projects" target="_blank" rel="noopener">projects</a>';
+      } else if (message) {
+        emptyText.textContent = `업무 현황을 불러오지 못했습니다. (${message})`;
+      } else {
+        emptyText.textContent = '업무 현황을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+      }
+      updateStatusStats([]);
     }
-    updateStatusStats([]);
+    if (portfolioGrid) {
+      portfolioLoading?.classList.add('hidden');
+      portfolioGrid.innerHTML = '';
+      portfolioEmpty?.classList.remove('hidden');
+      portfolioEmpty.querySelector('p').textContent = '프로젝트를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+      updatePortfolioCount(0);
+    }
+  }
+}
+
+function renderProjectViews() {
+  if (document.getElementById('statusTableBody')) {
+    renderStatusTable();
+  }
+  if (document.getElementById('portfolioGrid')) {
+    renderPortfolioGrid();
+  }
+  if (document.getElementById('homePortfolioGrid')) {
+    renderHomePortfolio();
   }
 }
 
@@ -319,6 +363,222 @@ function renderProjectDetailImages(images) {
       <div class="board-detail-label">첨부 이미지</div>
       <div class="project-detail-images">${items}</div>
     </div>`;
+}
+
+function initPortfolioPage() {
+  const grid = document.getElementById('portfolioGrid');
+  if (!grid) return;
+
+  document.querySelectorAll('[data-portfolio-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      portfolioFilter = btn.dataset.portfolioFilter || 'all';
+      document.querySelectorAll('[data-portfolio-filter]').forEach((item) => {
+        const active = item === btn;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      renderPortfolioGrid();
+    });
+  });
+
+  grid.addEventListener('click', (e) => {
+    if (e.target.closest('[data-portfolio-link]')) return;
+    const card = e.target.closest('[data-portfolio-id]');
+    if (card) {
+      openPortfolioModal(card.dataset.portfolioId);
+    }
+  });
+
+  document.getElementById('portfolioModalClose')?.addEventListener('click', closePortfolioModal);
+  document.getElementById('portfolioModalBackdrop')?.addEventListener('click', closePortfolioModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePortfolioModal();
+  });
+
+  loadProjects();
+}
+
+function initHomePortfolio() {
+  const grid = document.getElementById('homePortfolioGrid');
+  if (!grid) return;
+
+  grid.addEventListener('click', (e) => {
+    if (e.target.closest('a')) return;
+    if (e.target.closest('[data-portfolio-id]')) {
+      location.href = 'portfolio.html';
+    }
+  });
+
+  const cached = getProjectCache() || getProjectCacheStale();
+  if (cached?.length) {
+    statusProjects = cached;
+    renderHomePortfolio();
+    return;
+  }
+
+  if (!hasScriptConfig()) return;
+
+  fetchProjectsFromApi()
+    .then((projects) => {
+      statusProjects = projects;
+      setProjectCache(projects);
+      renderHomePortfolio();
+    })
+    .catch(() => {
+      document.getElementById('homePortfolio')?.classList.add('hidden');
+    });
+}
+
+function getFilteredPortfolioProjects() {
+  const projects = getProjects().filter((p) => p.status !== 'waiting');
+  if (portfolioFilter === 'all') return projects;
+  return projects.filter((p) => p.status === portfolioFilter);
+}
+
+function getProjectThumbnail(project) {
+  if (Array.isArray(project.images) && project.images.length) {
+    return toDisplayImageUrl(project.images[0]);
+  }
+  return '';
+}
+
+function extractProjectUrls(content) {
+  const text = String(content || '');
+  const urlPattern = /(\bhttps?:\/\/[^\s<>"']+|\bwww\.[^\s<>"']+)/gi;
+  const matches = text.match(urlPattern) || [];
+  return matches.map((url) => {
+    const trimmed = url.replace(/[.,;:!?)]+$/, '');
+    return trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed;
+  });
+}
+
+function getProjectExcerpt(content, maxLen = 110) {
+  const plain = String(content || '').replace(/\s+/g, ' ').trim();
+  if (!plain) return '프로젝트 소개가 준비 중입니다.';
+  return plain.length > maxLen ? `${plain.slice(0, maxLen)}…` : plain;
+}
+
+function renderPortfolioThumb(project) {
+  const thumb = getProjectThumbnail(project);
+  if (thumb) {
+    return `<img src="${escapeHtml(thumb)}" alt="" class="portfolio-card-image" loading="lazy">`;
+  }
+  const initial = escapeHtml((project.name || 'P').charAt(0));
+  return `<div class="portfolio-card-placeholder" aria-hidden="true"><span>${initial}</span></div>`;
+}
+
+function renderPortfolioCard(project, options = {}) {
+  const { compact = false } = options;
+  const urls = extractProjectUrls(project.content);
+  const linkBtn = urls.length
+    ? `<a href="${escapeHtml(urls[0])}" class="btn btn-sm btn-outline-dark portfolio-card-link" data-portfolio-link target="_blank" rel="noopener noreferrer">사이트 보기</a>`
+    : '';
+  const progressBlock = project.status !== 'done'
+    ? `<div class="portfolio-card-progress">
+        <div class="progress-track"><div class="progress-fill" style="width: ${project.progress}%"></div></div>
+        <span class="progress-text">${project.progress}%</span>
+      </div>`
+    : '';
+
+  return `
+    <article class="portfolio-card${compact ? ' portfolio-card--compact' : ''}" data-portfolio-id="${project.id}" tabindex="0" role="button" aria-label="${escapeHtml(project.name)} 상세 보기">
+      <div class="portfolio-card-media">
+        ${renderPortfolioThumb(project)}
+        <span class="status-badge ${project.status} portfolio-card-badge">${STATUS_LABELS[project.status]}</span>
+      </div>
+      <div class="portfolio-card-body">
+        <h3 class="portfolio-card-title">${escapeHtml(project.name || '(제목 없음)')}</h3>
+        <p class="portfolio-card-meta">${escapeHtml(project.assignee || '-')} · ${escapeHtml(project.start || '-')} ~ ${escapeHtml(project.end || '-')}</p>
+        <p class="portfolio-card-desc">${escapeHtml(getProjectExcerpt(project.content, compact ? 72 : 110))}</p>
+        ${progressBlock}
+        <div class="portfolio-card-actions">
+          <span class="portfolio-card-more">자세히 보기</span>
+          ${linkBtn}
+        </div>
+      </div>
+    </article>`;
+}
+
+function renderPortfolioGrid() {
+  const grid = document.getElementById('portfolioGrid');
+  const portfolioEmpty = document.getElementById('portfolioEmpty');
+  const portfolioLoading = document.getElementById('portfolioLoading');
+  if (!grid) return;
+
+  portfolioLoading?.classList.add('hidden');
+  const projects = getFilteredPortfolioProjects();
+  updatePortfolioCount(projects.length);
+
+  if (!projects.length) {
+    grid.innerHTML = '';
+    portfolioEmpty?.classList.remove('hidden');
+    return;
+  }
+
+  portfolioEmpty?.classList.add('hidden');
+  grid.innerHTML = projects.map((p) => renderPortfolioCard(p)).join('');
+}
+
+function renderHomePortfolio() {
+  const grid = document.getElementById('homePortfolioGrid');
+  const section = document.getElementById('homePortfolio');
+  if (!grid) return;
+
+  const projects = getProjects()
+    .filter((p) => p.status === 'done' || p.status === 'progress' || p.status === 'review')
+    .slice(0, 3);
+
+  if (!projects.length) {
+    section?.classList.add('hidden');
+    return;
+  }
+
+  section?.classList.remove('hidden');
+  grid.innerHTML = projects.map((p) => renderPortfolioCard(p, { compact: true })).join('');
+}
+
+function updatePortfolioCount(count) {
+  const el = document.getElementById('portfolioCount');
+  if (el) el.textContent = `총 ${count}건`;
+}
+
+function openPortfolioModal(id) {
+  const project = getProjects().find((p) => String(p.id) === String(id));
+  const modal = document.getElementById('portfolioModal');
+  const body = document.getElementById('portfolioModalBody');
+  if (!project || !modal || !body) return;
+
+  const urls = extractProjectUrls(project.content);
+  const imagesBlock = renderProjectDetailImages(project.images);
+  const linkActions = urls.map((url) =>
+    `<a href="${escapeHtml(url)}" class="btn btn-outline-dark btn-sm" target="_blank" rel="noopener noreferrer">링크 열기</a>`
+  ).join('');
+
+  body.innerHTML = `
+    <div class="portfolio-modal-header">
+      <span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span>
+      <h2 class="portfolio-modal-title" id="portfolioModalTitle">${escapeHtml(project.name || '(제목 없음)')}</h2>
+      <p class="portfolio-modal-meta">${escapeHtml(project.assignee || '-')} · ${escapeHtml(project.start || '-')} ~ ${escapeHtml(project.end || '-')} · 진행률 ${project.progress}%</p>
+    </div>
+    ${getProjectThumbnail(project) ? `<div class="portfolio-modal-hero"><img src="${escapeHtml(getProjectThumbnail(project))}" alt="${escapeHtml(project.name)}"></div>` : ''}
+    <div class="board-detail-block">
+      <div class="board-detail-label">프로젝트 소개</div>
+      <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
+    </div>
+    ${imagesBlock}
+    ${linkActions ? `<div class="portfolio-modal-actions">${linkActions}</div>` : ''}`;
+
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePortfolioModal() {
+  const modal = document.getElementById('portfolioModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
 }
 
 function updateStatusStats(projects) {
@@ -1073,7 +1333,7 @@ function prefetchProjects() {
 }
 
 function initStatusLinkPrefetch() {
-  document.querySelectorAll('a[href="status.html"], a[href="./status.html"]').forEach(link => {
+  document.querySelectorAll('a[href="status.html"], a[href="./status.html"], a[href="portfolio.html"], a[href="./portfolio.html"]').forEach(link => {
     link.addEventListener('mouseenter', prefetchProjects, { once: false });
     link.addEventListener('focus', prefetchProjects, { once: false });
   });

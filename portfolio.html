@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <script src="js/https-redirect.js?v=20260623"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="(주)에드가씨에스티 포트폴리오 - 웹·모바일 개발 프로젝트">
+  <title>포트폴리오 | edgacst</title>
+  <link rel="stylesheet" href="css/style.css?v=20260702">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body data-page="portfolio">
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <span class="logo-en">edgacst</span>
+        <span class="logo-ko">(주)에드가씨에스티</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html" class="nav-link">홈</a>
+        <a href="business.html" class="nav-link">사업영역</a>
+        <a href="portfolio.html" class="nav-link active">포트폴리오</a>
+        <a href="status.html" class="nav-link">개발 업무현황</a>
+        <a href="board.html" class="nav-link">공개게시판</a>
+      </nav>
+      <button class="menu-toggle" aria-label="메뉴 열기">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <span class="page-label">Portfolio</span>
+        <h1 class="page-title">포트폴리오</h1>
+        <p class="page-desc">edgacst가 진행·완료한 웹·모바일 프로젝트입니다. 개발 업무현황과 연동되어 최신 정보가 반영됩니다.</p>
+      </div>
+    </section>
+
+    <section class="section portfolio">
+      <div class="container">
+        <div class="portfolio-toolbar">
+          <div class="portfolio-filters" role="tablist" aria-label="프로젝트 필터">
+            <button type="button" class="portfolio-filter active" data-portfolio-filter="all" role="tab" aria-selected="true">전체</button>
+            <button type="button" class="portfolio-filter" data-portfolio-filter="done" role="tab" aria-selected="false">완료</button>
+            <button type="button" class="portfolio-filter" data-portfolio-filter="progress" role="tab" aria-selected="false">진행중</button>
+            <button type="button" class="portfolio-filter" data-portfolio-filter="review" role="tab" aria-selected="false">검수중</button>
+          </div>
+          <p class="portfolio-count" id="portfolioCount"></p>
+        </div>
+
+        <div class="portfolio-loading hidden" id="portfolioLoading">
+          <span class="board-loading-spinner"></span>
+          <span>프로젝트를 불러오는 중...</span>
+        </div>
+
+        <div class="portfolio-grid" id="portfolioGrid"></div>
+
+        <div class="list-empty hidden" id="portfolioEmpty">
+          <p>표시할 프로젝트가 없습니다.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="portfolio-modal hidden" id="portfolioModal" aria-hidden="true">
+    <div class="portfolio-modal-backdrop" id="portfolioModalBackdrop"></div>
+    <div class="portfolio-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="portfolioModalTitle">
+      <button type="button" class="portfolio-modal-close" id="portfolioModalClose" aria-label="닫기">&times;</button>
+      <div class="portfolio-modal-body" id="portfolioModalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo">edgacst</span>
+        <span class="footer-company">(주)에드가씨에스티</span>
+      </div>
+      <div class="footer-info">
+        <p>주소 : 경기도 부천시 상동 457</p>
+        <p>사업자번호 : 634-81-02760</p>
+        <p>통신판매업 : 제 2026-부천원미-0446 호</p>
+      </div>
+      <nav class="footer-legal" aria-label="법적 고지">
+        <a href="privacy.html">개인정보처리방침</a>
+        <span class="footer-legal-divider" aria-hidden="true">|</span>
+        <a href="terms.html">이용약관</a>
+      </nav>
+      <p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/config.js?v=20260623"></script>
+  <script src="js/main.js?v=20260702"></script>
+</body>
+</html>

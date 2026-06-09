@@ -1026,6 +1026,17 @@ body {
 .status-th-date { width: 108px; white-space: nowrap; }
 .status-th-status { width: 88px; }
 .status-th-progress { width: 140px; }
+.status-th-admin { width: 120px; white-space: nowrap; }
+
+.status-td-admin {
+  white-space: nowrap;
+}
+
+.status-td-admin .admin-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
 
 .status-td-assignee,
 .status-td-date,

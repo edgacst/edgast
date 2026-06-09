@@ -46,12 +46,16 @@ function initStatusPage() {
 
     const editBtn = e.target.closest('[data-edit]');
     if (editBtn) {
+      e.preventDefault();
+      e.stopPropagation();
       startEditProject(editBtn.dataset.edit);
       return;
     }
 
     const deleteBtn = e.target.closest('[data-delete]');
     if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
       deleteProject(Number(deleteBtn.dataset.delete));
     }
   });
@@ -138,7 +142,7 @@ async function loadProjects(options = {}) {
     renderStatusTable();
   } else {
     statusEmpty?.classList.add('hidden');
-    tbody.innerHTML = '<tr><td colspan="7" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${getStatusTableColspan()}" class="board-loading-cell"><span class="board-loading-spinner"></span> 업무 현황을 불러오는 중...</td></tr>`;
   }
 
   try {
@@ -175,6 +179,10 @@ function getAdminPassword() {
   return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
 }
 
+function getStatusTableColspan() {
+  return isAdminLoggedIn() ? 8 : 7;
+}
+
 function renderStatusTable() {
   const tbody = document.getElementById('statusTableBody');
   const statusEmpty = document.getElementById('statusEmpty');
@@ -207,14 +215,14 @@ function renderStatusTable() {
 
 function renderProjectItem(project, isAdmin, number) {
   const name = escapeHtml(project.name || '(제목 없음)');
-  const adminBlock = isAdmin
-    ? `<div class="inquiry-item-admin">
-        <div class="board-detail-label">관리</div>
+  const colspan = isAdmin ? 8 : 7;
+  const adminCell = isAdmin
+    ? `<td class="status-td-admin col-admin">
         <div class="admin-actions">
           <button type="button" class="btn-sm btn-edit" data-edit="${project.id}">수정</button>
           <button type="button" class="btn-sm btn-delete" data-delete="${project.row}">삭제</button>
         </div>
-      </div>`
+      </td>`
     : '';
 
   return `
@@ -237,15 +245,15 @@ function renderProjectItem(project, isAdmin, number) {
           <span class="progress-text">${project.progress}%</span>
         </div>
       </td>
+      ${adminCell}
     </tr>
     <tr class="board-detail-row" data-id="${project.id}">
-      <td colspan="7">
+      <td colspan="${colspan}">
         <div class="board-detail">
           <div class="board-detail-block">
             <div class="board-detail-label">개발 내용</div>
             <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
           </div>
-          ${adminBlock}
         </div>
       </td>
     </tr>`;
@@ -306,10 +314,9 @@ function initStatusAdmin() {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     resetProjectForm();
     updateAdminUI();
-      updateInquiryAdminBtn();
-      updateInquiryAdminUI();
-      renderStatusTable();
-      showToast('로그아웃되었습니다.');
+    updateInquiryAdminBtn();
+    updateInquiryAdminUI();
+    showToast('로그아웃되었습니다.');
   });
 
   loginForm?.addEventListener('submit', (e) => {
@@ -319,7 +326,6 @@ function initStatusAdmin() {
       sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
       closeLoginModal();
       updateAdminUI();
-      renderStatusTable();
       updateInquiryAdminBtn();
       updateInquiryAdminUI();
       showToast('관리자 로그인되었습니다.');
@@ -347,10 +353,19 @@ function updateAdminUI() {
   const isAdmin = isAdminLoggedIn();
   const adminPanel = document.getElementById('adminPanel');
   const adminLoginBtn = document.getElementById('adminLoginBtn');
+  const adminColHeader = document.getElementById('adminColHeader');
+  const statusAdminBanner = document.getElementById('statusAdminBanner');
 
   adminPanel?.classList.toggle('hidden', !isAdmin);
+  adminColHeader?.classList.toggle('hidden', !isAdmin);
+  statusAdminBanner?.classList.toggle('hidden', !isAdmin);
+
   if (adminLoginBtn) {
     adminLoginBtn.textContent = isAdmin ? '관리 패널' : '관리자';
+  }
+
+  if (document.getElementById('statusTableBody')) {
+    renderStatusTable();
   }
 }
 

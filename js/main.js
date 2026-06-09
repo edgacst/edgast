@@ -80,7 +80,28 @@ async function apiPost(payload) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   });
-  return res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('서버 응답을 읽을 수 없습니다.');
+  }
+}
+
+function isDriveAuthError(message) {
+  const msg = String(message || '');
+  return /drive/i.test(msg) || /authorization/i.test(msg) || /권한/i.test(msg);
+}
+
+function getProjectSaveErrorMessage(err) {
+  const msg = String(err?.message || '');
+  if (msg === 'DRIVE_AUTH_REQUIRED' || isDriveAuthError(msg)) {
+    return '이미지 업로드 실패: Apps Script에서 「연결 테스트」 실행 후 Drive 권한을 허용해 주세요.';
+  }
+  if (msg && msg !== 'save failed' && msg !== 'upload failed') {
+    return `저장 실패: ${msg}`;
+  }
+  return '업무 저장에 실패했습니다.';
 }
 
 async function migrateLocalProjectsIfNeeded() {
@@ -494,7 +515,11 @@ async function uploadPendingProjectImages() {
     });
 
     if (!data.success || !data.url) {
-      throw new Error(data.error || 'upload failed');
+      const error = data.error || 'upload failed';
+      if (isDriveAuthError(error)) {
+        throw new Error('DRIVE_AUTH_REQUIRED');
+      }
+      throw new Error(error);
     }
 
     uploaded.push(data.url);
@@ -580,8 +605,8 @@ async function saveProjectFromForm() {
     await loadProjects({ forceRefresh: true });
     resetProjectForm();
     showToast(isEdit ? '업무가 수정되었습니다.' : '업무가 등록되었습니다.');
-  } catch {
-    showToast('업무 저장에 실패했습니다.');
+  } catch (err) {
+    showToast(getProjectSaveErrorMessage(err));
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = isEdit ? '수정' : '등록';

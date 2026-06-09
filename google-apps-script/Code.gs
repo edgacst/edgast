@@ -3,7 +3,7 @@
  *
  * [최초 1회 설정]
  * 1. 스프레드시트 → 확장 프로그램 → Apps Script
- * 2. testAuth 실행 → 권한 허용
+ * 2. testAuth 실행 → 스프레드시트·Drive 권한 허용 (이미지 첨부 필수)
  * 3. setupDailyBackup 실행 (선택)
  * 4. 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
  * 5. 배포 URL을 js/config.js 의 SCRIPT_URL 에 입력
@@ -23,7 +23,7 @@ function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('edgacst')
-      .addItem('연결 테스트', 'testAuth')
+      .addItem('연결 테스트 (Drive 포함)', 'testAuth')
       .addItem('지금 백업', 'backupInquiries')
       .addItem('일일 자동 백업 설정', 'setupDailyBackup')
       .addToUi();
@@ -35,9 +35,10 @@ function onOpen() {
 function testAuth() {
   const inquirySheet = getResponseSheet_();
   const projectSheet = getProjectsSheet_();
+  const uploadFolder = getOrCreateUploadFolder_();
   const inquiryCount = Math.max(inquirySheet.getLastRow() - 1, 0);
   const projectCount = Math.max(projectSheet.getLastRow() - 1, 0);
-  const msg = '연결 성공\n문의 시트: ' + inquirySheet.getName() + ' (' + inquiryCount + '건)\n업무 시트: ' + projectSheet.getName() + ' (' + projectCount + '건)';
+  const msg = '연결 성공\n문의 시트: ' + inquirySheet.getName() + ' (' + inquiryCount + '건)\n업무 시트: ' + projectSheet.getName() + ' (' + projectCount + '건)\nDrive 폴더: ' + uploadFolder.getName();
   Logger.log(msg);
   try {
     SpreadsheetApp.getUi().alert(msg);

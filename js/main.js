@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
   initActiveNav();
-  initPageTransitions();
   initHeaderScroll();
   initMobileMenu();
   initHeroVideo();
@@ -1060,84 +1059,6 @@ function initHeaderScroll() {
   window.addEventListener('scroll', onScroll, { passive: true });
 }
 
-const PAGE_TRANSITION_MS = 280;
-
-function getPageTransitionTargets() {
-  return [...document.querySelectorAll('.header, main, .footer')];
-}
-
-function initPageTransitions() {
-  getPageTransitionTargets().forEach((el) => {
-    el.classList.remove('page-leave-active', 'page-enter-active');
-    el.style.opacity = '';
-  });
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.documentElement.classList.remove('page-enter-pending');
-    sessionStorage.removeItem('edgacst-page-transition');
-    return;
-  }
-
-  const targets = getPageTransitionTargets();
-  const fromNav = document.documentElement.classList.contains('page-enter-pending');
-
-  if (fromNav) {
-    targets.forEach((el) => {
-      el.style.opacity = '0';
-    });
-  }
-
-  document.documentElement.classList.remove('page-enter-pending');
-  sessionStorage.removeItem('edgacst-page-transition');
-
-  if (fromNav) {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        targets.forEach((el) => {
-          el.classList.add('page-enter-active');
-          el.style.opacity = '';
-        });
-      });
-    });
-  }
-
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('a[href]');
-    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-
-    let url;
-    try {
-      url = new URL(link.href, location.href);
-    } catch {
-      return;
-    }
-
-    if (url.origin !== location.origin) return;
-    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
-
-    e.preventDefault();
-    navigateWithTransition(link.href);
-  });
-}
-
-function navigateWithTransition(url) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    location.href = url;
-    return;
-  }
-
-  const targets = getPageTransitionTargets();
-  if (targets.some((el) => el.classList.contains('page-leave-active'))) return;
-
-  targets.forEach((el) => el.classList.add('page-leave-active'));
-  sessionStorage.setItem('edgacst-page-transition', 'out');
-
-  window.setTimeout(() => {
-    location.href = url;
-  }, PAGE_TRANSITION_MS);
-}
-
 function initHeroVideo() {
   const video = document.querySelector('.hero-video');
   if (!video) return;
@@ -1280,7 +1201,7 @@ function initInquiryAdminBtn() {
         loadInquiries();
         return;
       }
-      navigateWithTransition('board.html');
+      location.href = 'board.html';
     });
   });
   updateInquiryAdminBtn();

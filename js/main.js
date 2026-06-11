@@ -1060,14 +1060,17 @@ function initHeaderScroll() {
   window.addEventListener('scroll', onScroll, { passive: true });
 }
 
+const PAGE_TRANSITION_MS = 280;
+
 function getPageTransitionTargets() {
-  return [...document.querySelectorAll('main, .footer')];
+  return [...document.querySelectorAll('.header, main, .footer')];
 }
 
 function initPageTransitions() {
-  document.body.classList.remove('page-leave-active', 'page-enter-active');
-  document.body.style.opacity = '';
-  document.body.style.transform = '';
+  getPageTransitionTargets().forEach((el) => {
+    el.classList.remove('page-leave-active', 'page-enter-active');
+    el.style.opacity = '';
+  });
 
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.documentElement.classList.remove('page-enter-pending');
@@ -1077,25 +1080,26 @@ function initPageTransitions() {
 
   const targets = getPageTransitionTargets();
   const fromNav = document.documentElement.classList.contains('page-enter-pending');
-  document.documentElement.classList.remove('page-enter-pending');
-  sessionStorage.removeItem('edgacst-page-transition');
 
-  if (!fromNav) {
+  if (fromNav) {
     targets.forEach((el) => {
       el.style.opacity = '0';
-      el.style.transform = 'translateY(10px)';
     });
   }
 
-  requestAnimationFrame(() => {
+  document.documentElement.classList.remove('page-enter-pending');
+  sessionStorage.removeItem('edgacst-page-transition');
+
+  if (fromNav) {
     requestAnimationFrame(() => {
-      targets.forEach((el) => {
-        el.classList.add('page-enter-active');
-        el.style.opacity = '';
-        el.style.transform = '';
+      requestAnimationFrame(() => {
+        targets.forEach((el) => {
+          el.classList.add('page-enter-active');
+          el.style.opacity = '';
+        });
       });
     });
-  });
+  }
 
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a[href]');
@@ -1131,7 +1135,7 @@ function navigateWithTransition(url) {
 
   window.setTimeout(() => {
     location.href = url;
-  }, 360);
+  }, PAGE_TRANSITION_MS);
 }
 
 function initHeroVideo() {

@@ -546,12 +546,13 @@ function renderPortfolioCard(project, options = {}) {
   const linkBtn = urls.length
     ? `<a href="${escapeHtml(urls[0])}" class="btn btn-sm btn-outline-dark portfolio-card-link" data-portfolio-link target="_blank" rel="noopener noreferrer">사이트 보기</a>`
     : '';
-  const progressBlock = project.status !== 'done'
-    ? `<div class="portfolio-card-progress">
-        <div class="progress-track"><div class="progress-fill" style="width: ${project.progress}%"></div></div>
-        <span class="progress-text">${project.progress}%</span>
-      </div>`
-    : '';
+  const progressValue = project.status === 'done'
+    ? 100
+    : Math.min(100, Math.max(0, Number(project.progress) || 0));
+  const progressBlock = `<div class="portfolio-card-progress">
+        <div class="progress-track"><div class="progress-fill" style="width: ${progressValue}%"></div></div>
+        <span class="progress-text">${progressValue}%</span>
+      </div>`;
 
   return `
     <article class="portfolio-card${compact ? ' portfolio-card--compact' : ''}" data-portfolio-id="${project.id}" tabindex="0" role="button" aria-label="${escapeHtml(project.name)} 상세 보기">

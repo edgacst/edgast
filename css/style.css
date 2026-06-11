@@ -33,6 +33,37 @@
   --header-height: 76px;
 }
 
+#page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--color-primary);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--page-transition-duration) var(--page-transition-ease);
+}
+
+#page-transition-overlay.is-visible,
+#page-transition-overlay.is-covering {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#page-transition-overlay.is-covering {
+  transition: none;
+}
+
+#page-transition-overlay.is-revealing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #page-transition-overlay {
+    display: none !important;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

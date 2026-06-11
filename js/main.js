@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   initActiveNav();
+  initPageTransitions();
   initHeaderScroll();
   initMobileMenu();
   initHeroVideo();
@@ -1047,6 +1048,90 @@ function initActiveNav() {
   });
 }
 
+const PAGE_TRANSITION_MS = 260;
+
+function removePageTransitionOverlay() {
+  document.getElementById('page-transition-style')?.remove();
+  document.getElementById('page-transition-overlay')?.remove();
+}
+
+function ensurePageTransitionOverlay() {
+  let overlay = document.getElementById('page-transition-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'page-transition-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+
+function navigateWithTransition(url) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    location.href = url;
+    return;
+  }
+
+  const overlay = ensurePageTransitionOverlay();
+  if (overlay.classList.contains('is-entering')) return;
+
+  sessionStorage.setItem('edgacst-page-transition', 'out');
+  overlay.classList.remove('is-revealing', 'is-covering');
+  overlay.classList.add('is-entering');
+
+  requestAnimationFrame(() => {
+    overlay.classList.add('is-visible');
+  });
+
+  window.setTimeout(() => {
+    location.href = url;
+  }, PAGE_TRANSITION_MS);
+}
+
+function initPageTransitions() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    removePageTransitionOverlay();
+    sessionStorage.removeItem('edgacst-page-transition');
+    return;
+  }
+
+  const overlay = document.getElementById('page-transition-overlay');
+  const fromNav = sessionStorage.getItem('edgacst-page-transition') === 'out';
+  sessionStorage.removeItem('edgacst-page-transition');
+
+  if (overlay && fromNav) {
+    const finishReveal = () => removePageTransitionOverlay();
+
+    requestAnimationFrame(() => {
+      overlay.classList.remove('is-covering');
+      overlay.classList.add('is-revealing');
+      overlay.addEventListener('transitionend', finishReveal, { once: true });
+      window.setTimeout(finishReveal, 450);
+    });
+  } else if (overlay) {
+    removePageTransitionOverlay();
+  }
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+    let url;
+    try {
+      url = new URL(link.href, location.href);
+    } catch {
+      return;
+    }
+
+    if (url.origin !== location.origin) return;
+    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+
+    e.preventDefault();
+    navigateWithTransition(link.href);
+  });
+}
+
 function initHeaderScroll() {
   const header = document.querySelector('.header');
   if (!header) return;
@@ -1201,7 +1286,7 @@ function initInquiryAdminBtn() {
         loadInquiries();
         return;
       }
-      location.href = 'board.html';
+      navigateWithTransition('board.html');
     });
   });
   updateInquiryAdminBtn();

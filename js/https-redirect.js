@@ -9,4 +9,20 @@
     );
   }
 
+  try {
+    if (sessionStorage.getItem('edgacst-page-transition') === 'out') {
+      var style = document.createElement('style');
+      style.id = 'page-transition-style';
+      style.textContent =
+        '#page-transition-overlay{position:fixed;inset:0;z-index:99999;background:#0f2438;opacity:1;pointer-events:none}';
+      document.documentElement.appendChild(style);
+      var overlay = document.createElement('div');
+      overlay.id = 'page-transition-overlay';
+      overlay.className = 'is-covering';
+      overlay.setAttribute('aria-hidden', 'true');
+      document.documentElement.appendChild(overlay);
+    }
+  } catch (e) {
+    // sessionStorage unavailable
+  }
 })();

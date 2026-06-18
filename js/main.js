@@ -1247,6 +1247,10 @@ function initInquiryForm() {
         body: params.toString()
       });
 
+      if (typeof trackInquiryConversion === 'function') {
+        trackInquiryConversion(form.subject.value.trim());
+      }
+
       form.reset();
       showToast('문의가 등록되었습니다. 공개게시판에서 확인할 수 있습니다.');
       setTimeout(() => prefetchInquiries(), 2500);

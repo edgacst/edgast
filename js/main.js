@@ -29,6 +29,7 @@ const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
 const ADMIN_SESSION_KEY = 'edgacst_admin_session';
 const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
 const PROJECTS_CACHE_KEY = 'edgacst_projects_cache';
+const INQUIRY_SUBMITTED_KEY = 'edgacst-inquiry-submitted';
 const INQUIRIES_CACHE_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = '1324';
 
@@ -1183,13 +1184,14 @@ function isBoardPage() {
 function initInquiryBoard() {
   if (!isBoardPage() || !document.getElementById('inquiryListContainer')) return;
 
-  document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries());
+  document.getElementById('inquiryRefreshBtn')?.addEventListener('click', () => loadInquiries({ forceRefresh: true }));
   document.getElementById('inquiryAdminLoginBtn')?.addEventListener('click', () => openLoginModal());
   document.getElementById('inquiryLogoutBtn')?.addEventListener('click', () => {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     updateInquiryAdminBtn();
     updateInquiryAdminUI();
-    loadInquiries();
+    clearInquiryCache();
+    loadInquiries({ forceRefresh: true });
     showToast('로그아웃되었습니다.');
   });
 
@@ -1211,7 +1213,14 @@ function initInquiryBoard() {
   });
 
   updateInquiryAdminUI();
-  loadInquiries();
+  const submittedRecently = sessionStorage.getItem(INQUIRY_SUBMITTED_KEY);
+  if (submittedRecently) {
+    sessionStorage.removeItem(INQUIRY_SUBMITTED_KEY);
+    clearInquiryCache();
+    loadInquiries({ forceRefresh: true });
+  } else {
+    loadInquiries();
+  }
   initInquiryLogin();
 }
 
@@ -1251,9 +1260,11 @@ function initInquiryForm() {
         trackInquiryConversion(form.subject.value.trim());
       }
 
+      sessionStorage.setItem(INQUIRY_SUBMITTED_KEY, String(Date.now()));
+      clearInquiryCache();
       form.reset();
       showToast('문의가 등록되었습니다. 공개게시판에서 확인할 수 있습니다.');
-      setTimeout(() => prefetchInquiries(), 2500);
+      setTimeout(() => prefetchInquiries({ forceRefresh: true }), 2500);
     } catch {
       showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -1460,11 +1471,12 @@ async function fetchInquiriesFromApi(isAdmin) {
   return data.inquiries || [];
 }
 
-function prefetchInquiries() {
+function prefetchInquiries(options = {}) {
+  const { forceRefresh = false } = options;
   if (!hasScriptConfig()) return Promise.resolve();
 
   const isAdmin = isAdminLoggedIn();
-  if (getInquiryCache(isAdmin)) return Promise.resolve();
+  if (!forceRefresh && getInquiryCache(isAdmin)) return Promise.resolve();
 
   return fetchInquiriesFromApi(isAdmin)
     .then(inquiries => setInquiryCache(inquiries, isAdmin))

@@ -1,3 +1,8 @@
+// Google Analytics 4 — analytics.google.com 에서 측정 ID 발급 후 입력 (예: G-XXXXXXXXXX)
+const ANALYTICS_CONFIG = {
+  GA4_MEASUREMENT_ID: ''
+};
+
 // Google Form → 스프레드시트 저장 + Apps Script → 목록·답변·백업
 const GOOGLE_CONFIG = {
   FORM_ACTION_URL: 'https://docs.google.com/forms/d/e/1FAIpQLScb7N9_uzRhrAuo02VHMD2luEm0uGsv4ZAjqpQezi8v0N-3ZQ/formResponse',

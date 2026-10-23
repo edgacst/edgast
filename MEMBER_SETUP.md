@@ -23,10 +23,17 @@ Firebase는 브라우저의 이메일 가입·로그인, 계정 조회, 이메�
 ## 3. Apps Script 설정
 
 1. 프로젝트 스프레드시트에서 `확장 프로그램` → `Apps Script`를 엽니다.
-2. 프로젝트의 `Code.gs`를 배포 파일의 `Code.gs`로 교체합니다. `appsscript.json` 표시를 켜고 배포 파일의 manifest 내용도 적용합니다. manifest는 스프레드시트·Drive 및 Firebase 인증 서버 요청 권한을 선언합니다.
+2. 현재 웹 앱의 `Code.gs`에 회원 동기화·인증 기능이 있다면 그대로 둡니다. 프로젝트 설정에서 `appsscript.json` 표시를 켜고 배포 파일의 manifest에 있는 OAuth 범위를 적용합니다. 특히 `https://www.googleapis.com/auth/script.external_request`가 필요합니다.
 3. 저장 후 스프레드시트를 새로고침합니다. 상단 `edgacst` 메뉴에서 `보안 설정 (관리자 비밀번호·Firebase 키)`을 실행합니다.
 4. 32자 이상의 무작위 관리자 비밀번호와 같은 Firebase 웹 API 키를 입력합니다. 관리자 비밀번호는 비밀번호 관리자에서 생성해 보관하세요. 소스 코드나 공개 저장소에는 넣지 않습니다.
-5. `edgacst` → `연결 테스트 (Drive 포함)`을 실행하고 요청된 스프레드시트·Drive·외부 요청 권한을 승인합니다. 이 과정에서 `회원` 탭과 비공개 첨부파일 폴더가 준비됩니다.
+5. 외부 요청 권한을 처음 추가했거나 아직 승인하지 않았다면, `Code.gs` 끝에 아래 함수를 임시로 추가하고 함수 선택 메뉴에서 `authorizeExternalRequest`를 실행합니다. 권한 검토 화면에서 요청 권한을 허용합니다. 실행 로그에 HTTP `204`가 나오면 외부 요청 승인이 된 것입니다.
+   ```js
+   function authorizeExternalRequest() {
+     const response = UrlFetchApp.fetch('https://www.google.com/generate_204', { muteHttpExceptions: true });
+     Logger.log('외부 요청 권한 확인: HTTP ' + response.getResponseCode());
+   }
+   ```
+   그 다음 `edgacst` → `연결 테스트 (Drive 포함)`을 실행해 스프레드시트·Drive 권한도 승인합니다. 이 과정에서 `회원` 탭과 비공개 첨부파일 폴더가 준비됩니다.
 6. `배포` → `배포 관리`에서 웹 앱 배포를 수정하고 새 버전을 배포합니다. 실행 주체는 스프레드시트 소유자, 액세스는 모든 사용자로 설정합니다. 배포 URL이 바뀌면 `js/config.js`의 `SCRIPT_URL`도 바꾸세요.
 
 ## 4. 동작 확인

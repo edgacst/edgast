@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  clearLegacySecretsAndPrivateCache();
   initActiveNav();
   initPageTransitions();
   initHeaderScroll();
@@ -18,6 +19,19 @@ document.addEventListener('DOMContentLoaded', () => {
   initFooterAdmin();
 });
 
+function clearLegacySecretsAndPrivateCache() {
+  try {
+    localStorage.removeItem('edgacst_admin_password');
+    [localStorage, sessionStorage].forEach((store) => {
+      const raw = store.getItem(INQUIRIES_CACHE_KEY);
+      if (raw && JSON.parse(raw).isAdmin) store.removeItem(INQUIRIES_CACHE_KEY);
+    });
+  } catch {
+    localStorage.removeItem(INQUIRIES_CACHE_KEY);
+    sessionStorage.removeItem(INQUIRIES_CACHE_KEY);
+  }
+}
+
 const STATUS_LABELS = {
   progress: '진행중',
   review: '검수중',
@@ -25,13 +39,11 @@ const STATUS_LABELS = {
   waiting: '대기'
 };
 
-const ADMIN_PASSWORD_KEY = 'edgacst_admin_password';
-const ADMIN_SESSION_KEY = 'edgacst_admin_session';
+const ADMIN_SESSION_KEY = 'edgacst_admin_token';
 const INQUIRIES_CACHE_KEY = 'edgacst_inquiries_cache';
 const PROJECTS_CACHE_KEY = 'edgacst_projects_cache';
 const INQUIRY_SUBMITTED_KEY = 'edgacst-inquiry-submitted';
 const INQUIRIES_CACHE_TTL_MS = 15 * 60 * 1000;
-const DEFAULT_ADMIN_PASSWORD = '1324';
 
 let statusProjects = [];
 let projectImageUrls = [];
@@ -40,14 +52,19 @@ let portfolioFilter = 'all';
 const MAX_PROJECT_IMAGES = 5;
 const MAX_PROJECT_IMAGE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_PROJECT_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_PROJECT_ATTACHMENTS = 5;
+const MAX_PROJECT_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+const ALLOWED_PROJECT_ATTACHMENT_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'text/plain', 'text/csv', 'application/haansofthwp', 'application/vnd.hancom.hwp', 'application/vnd.hancom.hwpx', 'application/octet-stream'];
+
+let projectAttachments = [];
 
 function initStatusPage() {
   const tbody = document.getElementById('statusTableBody');
   if (!tbody) return;
 
-  localStorage.setItem(ADMIN_PASSWORD_KEY, DEFAULT_ADMIN_PASSWORD);
   initStatusAdmin();
   initProjectImages();
+  initProjectAttachments();
 
   tbody.addEventListener('click', (e) => {
     const titleBtn = e.target.closest('.board-title-btn');
@@ -250,11 +267,11 @@ function renderProjectViews() {
 }
 
 function isAdminLoggedIn() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+  return Boolean(sessionStorage.getItem(ADMIN_SESSION_KEY));
 }
 
 function getAdminPassword() {
-  return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) || '';
 }
 
 function getStatusTableColspan() {
@@ -293,11 +310,14 @@ function renderStatusTable() {
 
 function renderProjectItem(project, isAdmin, number) {
   const name = escapeHtml(project.name || '(제목 없음)');
+  const projectId = escapeHtml(String(project.id ?? ''));
+  const status = ['waiting', 'progress', 'review', 'done'].includes(project.status) ? project.status : 'waiting';
+  const progress = Math.min(100, Math.max(0, Number(project.progress) || 0));
   const colspan = isAdmin ? 8 : 7;
   const adminCell = isAdmin
     ? `<td class="status-td-admin col-admin">
         <div class="admin-actions">
-          <button type="button" class="btn-sm btn-edit" data-edit="${project.id}">수정</button>
+          <button type="button" class="btn-sm btn-edit" data-edit="${projectId}">수정</button>
           <button type="button" class="btn-sm btn-delete" data-delete="${project.row}">삭제</button>
         </div>
       </td>`
@@ -306,7 +326,7 @@ function renderProjectItem(project, isAdmin, number) {
   const imagesBlock = renderProjectDetailImages(project.images);
 
   return `
-    <tr class="board-row status-list-row" data-id="${project.id}">
+    <tr class="board-row status-list-row" data-id="${projectId}">
       <td class="board-td-num">${number}</td>
       <td class="board-td-subject">
         <button type="button" class="board-title-btn" aria-expanded="false">
@@ -316,18 +336,18 @@ function renderProjectItem(project, isAdmin, number) {
       <td class="status-td-assignee">${escapeHtml(project.assignee || '-')}</td>
       <td class="status-td-date">${escapeHtml(project.start || '-')}</td>
       <td class="status-td-date">${escapeHtml(project.end || '-')}</td>
-      <td class="status-td-status"><span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span></td>
+      <td class="status-td-status"><span class="status-badge ${status}">${STATUS_LABELS[status]}</span></td>
       <td class="status-td-progress">
         <div class="progress-bar status-inline-progress">
           <div class="progress-track">
-            <div class="progress-fill" style="width: ${project.progress}%"></div>
+            <div class="progress-fill" style="width: ${progress}%"></div>
           </div>
-          <span class="progress-text">${project.progress}%</span>
+          <span class="progress-text">${progress}%</span>
         </div>
       </td>
       ${adminCell}
     </tr>
-    <tr class="board-detail-row" data-id="${project.id}">
+    <tr class="board-detail-row" data-id="${projectId}">
       <td colspan="${colspan}">
         <div class="board-detail">
           <div class="board-detail-block">
@@ -335,9 +355,16 @@ function renderProjectItem(project, isAdmin, number) {
             <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
           </div>
           ${imagesBlock}
+          ${renderProjectAttachments(project.attachments)}
         </div>
       </td>
     </tr>`;
+}
+
+function renderProjectAttachments(attachments) {
+  if (!Array.isArray(attachments) || !attachments.length) return '';
+  const items = attachments.map((file) => `<li><span>${escapeHtml(file.name || '첨부파일')}</span> <button type="button" class="btn-sm btn-outline-dark" data-download-attachment="${escapeHtml(file.fileId || '')}">로그인 후 다운로드</button></li>`).join('');
+  return `<div class="board-detail-block"><div class="board-detail-label">회원 전용 첨부파일</div><ul class="project-attachment-list">${items}</ul></div>`;
 }
 
 function extractDriveFileId(url) {
@@ -550,16 +577,17 @@ function renderPortfolioCard(project, options = {}) {
   const progressValue = project.status === 'done'
     ? 100
     : Math.min(100, Math.max(0, Number(project.progress) || 0));
+  const status = ['waiting', 'progress', 'review', 'done'].includes(project.status) ? project.status : 'waiting';
   const progressBlock = `<div class="portfolio-card-progress">
         <div class="progress-track"><div class="progress-fill" style="width: ${progressValue}%"></div></div>
         <span class="progress-text">${progressValue}%</span>
       </div>`;
 
   return `
-    <article class="portfolio-card${compact ? ' portfolio-card--compact' : ''}" data-portfolio-id="${project.id}" tabindex="0" role="button" aria-label="${escapeHtml(project.name)} 상세 보기">
+    <article class="portfolio-card${compact ? ' portfolio-card--compact' : ''}" data-portfolio-id="${escapeHtml(String(project.id ?? ''))}" tabindex="0" role="button" aria-label="${escapeHtml(project.name)} 상세 보기">
       <div class="portfolio-card-media">
         ${renderPortfolioThumb(project)}
-        <span class="status-badge ${project.status} portfolio-card-badge">${STATUS_LABELS[project.status]}</span>
+        <span class="status-badge ${status} portfolio-card-badge">${STATUS_LABELS[status]}</span>
       </div>
       <div class="portfolio-card-body">
         <h3 class="portfolio-card-title">${escapeHtml(project.name || '(제목 없음)')}</h3>
@@ -625,15 +653,17 @@ function openPortfolioModal(id) {
 
   const urls = extractProjectUrls(project.content);
   const imagesBlock = renderProjectDetailImages(project.images);
+  const status = ['waiting', 'progress', 'review', 'done'].includes(project.status) ? project.status : 'waiting';
+  const progress = Math.min(100, Math.max(0, Number(project.progress) || 0));
   const linkActions = urls.map((url) =>
     `<a href="${escapeHtml(url)}" class="btn btn-outline-dark btn-sm" target="_blank" rel="noopener noreferrer">링크 열기</a>`
   ).join('');
 
   body.innerHTML = `
     <div class="portfolio-modal-header">
-      <span class="status-badge ${project.status}">${STATUS_LABELS[project.status]}</span>
+      <span class="status-badge ${status}">${STATUS_LABELS[status]}</span>
       <h2 class="portfolio-modal-title" id="portfolioModalTitle">${escapeHtml(project.name || '(제목 없음)')}</h2>
-      <p class="portfolio-modal-meta">${escapeHtml(project.assignee || '-')} · ${escapeHtml(project.start || '-')} ~ ${escapeHtml(project.end || '-')} · 진행률 ${project.progress}%</p>
+      <p class="portfolio-modal-meta">${escapeHtml(project.assignee || '-')} · ${escapeHtml(project.start || '-')} ~ ${escapeHtml(project.end || '-')} · 진행률 ${progress}%</p>
     </div>
     ${getProjectThumbnail(project) ? `<div class="portfolio-modal-hero"><img src="${escapeHtml(getProjectThumbnail(project))}" alt="${escapeHtml(project.name)}"></div>` : ''}
     <div class="board-detail-block">
@@ -641,6 +671,7 @@ function openPortfolioModal(id) {
       <div class="board-detail-text">${project.content ? linkifyText(project.content) : '등록된 내용이 없습니다.'}</div>
     </div>
     ${imagesBlock}
+    ${renderProjectAttachments(project.attachments)}
     ${linkActions ? `<div class="portfolio-modal-actions">${linkActions}</div>` : ''}`;
 
   modal.classList.remove('hidden');
@@ -700,6 +731,7 @@ function initStatusAdmin() {
   const projectCancelBtn = document.getElementById('projectCancelBtn');
 
   updateAdminUI();
+  if (isAdminLoggedIn()) loadMemberListAdmin();
 
   adminLoginBtn?.addEventListener('click', handleAdminLoginClick);
 
@@ -713,24 +745,28 @@ function initStatusAdmin() {
     updateAdminUI();
     updateInquiryAdminBtn();
     updateInquiryAdminUI();
+    clearInquiryCache();
     showToast('로그아웃되었습니다.');
   });
 
-  loginForm?.addEventListener('submit', (e) => {
+  loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const password = document.getElementById('adminPassword').value;
-    if (password === getAdminPassword()) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    try {
+      const data = await apiPost({ action: 'admin-auth', token: password });
+      if (!data.success) throw new Error('unauthorized');
+      sessionStorage.setItem(ADMIN_SESSION_KEY, password);
       closeLoginModal();
       updateAdminUI();
       updateInquiryAdminBtn();
       updateInquiryAdminUI();
       showToast('관리자 로그인되었습니다.');
+      clearInquiryCache();
+      if (isBoardPage()) loadInquiries({ forceRefresh: true });
+      loadMemberListAdmin();
       migrateLocalProjectsIfNeeded();
-      if (adminPanel) {
-        adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    } else {
+      if (adminPanel) adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch {
       showToast('비밀번호가 올바르지 않습니다.');
     }
   });
@@ -798,6 +834,74 @@ function initProjectImages() {
     if (!removeBtn) return;
     removeProjectImage(Number(removeBtn.dataset.removeImage));
   });
+}
+
+function initProjectAttachments() {
+  const input = document.getElementById('projectAttachments');
+  const preview = document.getElementById('projectAttachmentPreview');
+  if (!input || !preview) return;
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files || []);
+    const available = MAX_PROJECT_ATTACHMENTS - projectAttachments.length;
+    if (available <= 0) {
+      showToast(`첨부파일은 최대 ${MAX_PROJECT_ATTACHMENTS}개까지 등록할 수 있습니다.`);
+      input.value = '';
+      return;
+    }
+    const accepted = [];
+    for (const file of files.slice(0, available)) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'hwp', 'hwpx', 'zip', 'txt', 'csv'].includes(ext)) {
+        showToast('PDF, Office, HWP, ZIP, TXT, CSV 파일만 첨부할 수 있습니다.');
+        continue;
+      }
+      if (file.size > MAX_PROJECT_ATTACHMENT_SIZE) {
+        showToast('첨부파일은 파일당 5MB 이하만 등록할 수 있습니다.');
+        continue;
+      }
+      if (file.size === 0) {
+        showToast('빈 파일은 등록할 수 없습니다.');
+        continue;
+      }
+      accepted.push(file);
+    }
+    accepted.forEach(file => projectAttachments.push({ file, name: file.name, fileId: '', isLocal: true }));
+    if (files.length > available) showToast(`첨부파일은 최대 ${MAX_PROJECT_ATTACHMENTS}개까지 등록할 수 있습니다.`);
+    input.value = '';
+    renderProjectAttachmentPreview();
+  });
+  preview.addEventListener('click', (e) => {
+    const button = e.target.closest('[data-remove-attachment]');
+    if (!button) return;
+    projectAttachments.splice(Number(button.dataset.removeAttachment), 1);
+    renderProjectAttachmentPreview();
+  });
+}
+
+function renderProjectAttachmentPreview() {
+  const preview = document.getElementById('projectAttachmentPreview');
+  if (!preview) return;
+  preview.innerHTML = projectAttachments.map((item, index) => `<div class="project-attachment-preview-item"><span>${escapeHtml(item.name || '첨부파일')}</span><button type="button" class="project-image-remove" data-remove-attachment="${index}" aria-label="첨부파일 삭제">×</button></div>`).join('');
+}
+
+async function uploadPendingProjectAttachments() {
+  const uploaded = [];
+  for (const item of projectAttachments) {
+    if (!item.isLocal) {
+      uploaded.push({ fileId: item.fileId, name: item.name, mimeType: item.mimeType || 'application/octet-stream', size: Number(item.size) || 0 });
+      continue;
+    }
+    const data = await apiPost({
+      action: 'project-upload-attachment',
+      token: getAdminPassword(),
+      base64: await fileToBase64(item.file),
+      mimeType: ALLOWED_PROJECT_ATTACHMENT_TYPES.includes(item.file.type) ? item.file.type : 'application/octet-stream',
+      fileName: item.file.name
+    });
+    if (!data.success || !data.attachment) throw new Error(data.error || 'attachment upload failed');
+    uploaded.push(data.attachment);
+  }
+  return uploaded;
 }
 
 function renderProjectImagePreview() {
@@ -899,6 +1003,22 @@ function updateAdminUI() {
   }
 }
 
+async function loadMemberListAdmin() {
+  const body = document.getElementById('memberAdminTableBody');
+  if (!body || !isAdminLoggedIn()) return;
+  body.innerHTML = '<tr><td colspan="5">회원 정보를 불러오는 중...</td></tr>';
+  try {
+    const data = await apiPost({ action: 'members-list', token: getAdminPassword() });
+    if (!data.success) throw new Error(data.error || 'load failed');
+    const members = data.members || [];
+    body.innerHTML = members.length
+      ? members.map(member => `<tr><td>${escapeHtml(member.name || '-')}</td><td>${escapeHtml(member.email || '-')}</td><td>${member.emailVerified ? '인증 완료' : '미인증'}</td><td>${escapeHtml(member.joinedAt || '-')}</td><td>${escapeHtml(member.lastLogin || '-')}</td></tr>`).join('')
+      : '<tr><td colspan="5">가입 회원이 없습니다.</td></tr>';
+  } catch (error) {
+    body.innerHTML = `<tr><td colspan="5">회원 목록을 불러오지 못했습니다. ${escapeHtml(error.message || '')}</td></tr>`;
+  }
+}
+
 function openLoginModal() {
   const loginModal = document.getElementById('loginModal');
   const adminPassword = document.getElementById('adminPassword');
@@ -935,7 +1055,8 @@ async function saveProjectFromForm() {
     progress: Math.min(100, Math.max(0, Number(form.progress.value) || 0)),
     status: form.status.value,
     content: form.content.value.trim(),
-    images: []
+    images: [],
+    attachments: []
   };
 
   submitBtn.disabled = true;
@@ -943,6 +1064,7 @@ async function saveProjectFromForm() {
 
   try {
     project.images = await uploadPendingProjectImages();
+    project.attachments = await uploadPendingProjectAttachments();
 
     const data = await apiPost({
       action: 'project-save',
@@ -982,6 +1104,8 @@ function startEditProject(id) {
   clearProjectImagePreview();
   projectImageUrls = (project.images || []).map(url => ({ url, isLocal: false }));
   renderProjectImagePreview();
+  projectAttachments = (project.attachments || []).map(file => ({ ...file, isLocal: false }));
+  renderProjectAttachmentPreview();
 
   document.getElementById('adminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1021,6 +1145,8 @@ function resetProjectForm() {
   document.getElementById('projectSubmitBtn').textContent = '등록';
   document.getElementById('projectCancelBtn')?.classList.add('hidden');
   clearProjectImagePreview();
+  projectAttachments = [];
+  renderProjectAttachmentPreview();
 }
 
 function formatDateTime(isoString) {
@@ -1263,7 +1389,7 @@ function initInquiryForm() {
       sessionStorage.setItem(INQUIRY_SUBMITTED_KEY, String(Date.now()));
       clearInquiryCache();
       form.reset();
-      showToast('문의가 등록되었습니다. 공개게시판에서 확인할 수 있습니다.');
+      showToast('문의 전송을 요청했습니다. 공개게시판에서 접수 여부를 확인해 주세요.');
       setTimeout(() => prefetchInquiries({ forceRefresh: true }), 2500);
     } catch {
       showToast('문의 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.');
@@ -1334,7 +1460,14 @@ function hasScriptConfig() {
 }
 
 function getInquiryCacheRaw(isAdmin) {
-  const raw = sessionStorage.getItem(INQUIRIES_CACHE_KEY) || localStorage.getItem(INQUIRIES_CACHE_KEY);
+  const sessionRaw = sessionStorage.getItem(INQUIRIES_CACHE_KEY);
+  const localRaw = localStorage.getItem(INQUIRIES_CACHE_KEY);
+  if (localRaw) {
+    try {
+      if (JSON.parse(localRaw).isAdmin) localStorage.removeItem(INQUIRIES_CACHE_KEY);
+    } catch { localStorage.removeItem(INQUIRIES_CACHE_KEY); }
+  }
+  const raw = sessionRaw || localStorage.getItem(INQUIRIES_CACHE_KEY);
   if (!raw) return null;
 
   try {
@@ -1362,7 +1495,8 @@ function getInquiryCacheStale(isAdmin) {
 function setInquiryCache(inquiries, isAdmin) {
   const payload = JSON.stringify({ inquiries, isAdmin, at: Date.now() });
   sessionStorage.setItem(INQUIRIES_CACHE_KEY, payload);
-  localStorage.setItem(INQUIRIES_CACHE_KEY, payload);
+  if (isAdmin) localStorage.removeItem(INQUIRIES_CACHE_KEY);
+  else localStorage.setItem(INQUIRIES_CACHE_KEY, payload);
 }
 
 function clearInquiryCache() {
@@ -1456,11 +1590,13 @@ function showBoardError(container, message) {
 }
 
 async function fetchInquiriesFromApi(isAdmin) {
+  if (isAdmin) {
+    const data = await apiPost({ action: 'inquiries-admin', token: getAdminPassword() });
+    if (!data.success) throw new Error(data.error || 'load failed');
+    return data.inquiries || [];
+  }
   const url = new URL(GOOGLE_CONFIG.SCRIPT_URL);
   url.searchParams.set('action', 'list');
-  if (isAdmin) {
-    url.searchParams.set('token', getAdminPassword());
-  }
 
   const res = await fetch(url.toString(), { redirect: 'follow' });
   const data = await res.json();
@@ -1621,7 +1757,6 @@ function renderInquiryItem(item, admin, number) {
       <td class="board-td-subject">
         <button type="button" class="board-title-btn" aria-expanded="false">
           <span class="board-subject-text">${subject}</span>
-          ${hasReply ? '<span class="board-reply-badge">답변</span>' : ''}
         </button>
       </td>
       <td class="board-td-author">${author}</td>
@@ -1751,18 +1886,20 @@ function initInquiryLogin() {
     openLoginModal();
   }
 
-  loginForm.addEventListener('submit', (e) => {
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const password = document.getElementById('adminPassword').value;
-    if (password === getAdminPassword()) {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    try {
+      const data = await apiPost({ action: 'admin-auth', token: password });
+      if (!data.success) throw new Error('unauthorized');
+      sessionStorage.setItem(ADMIN_SESSION_KEY, password);
       closeLoginModal();
       updateInquiryAdminBtn();
       updateInquiryAdminUI();
-      loadInquiries();
+      loadInquiries({ forceRefresh: true });
       showToast('관리자 로그인되었습니다.');
       document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
+    } catch {
       showToast('비밀번호가 올바르지 않습니다.');
     }
   });

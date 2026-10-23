@@ -7,14 +7,14 @@
   <meta http-equiv="Expires" content="0">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <script src="js/https-redirect.js?v=20260714"></script>
-  <script src="js/config.js?v=20260714"></script>
+  <script src="js/config.js?v=20261023a"></script>
   <script src="js/analytics.js?v=20260714"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="(주)에드가씨에스티 edgacst 개인정보처리방침. 홈페이지·앱 개발 문의 시 수집되는 개인정보 처리 안내.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://edgcst.com/privacy.html">
   <title>개인정보처리방침 | edgacst</title>
-  <link rel="stylesheet" href="css/style.css?v=20260714">
+  <link rel="stylesheet" href="css/style.css?v=20261023a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +33,7 @@
         <a href="status.html" class="nav-link">개발 업무현황</a>
         <a href="faq.html" class="nav-link">FAQ</a>
         <a href="board.html" class="nav-link">공개게시판</a>
+        <a href="members.html" class="nav-link">회원가입/로그인</a>
       </nav>
       <button class="menu-toggle" aria-label="메뉴 열기">
         <span></span>
@@ -61,6 +62,7 @@
           <ol class="legal-list">
             <li><strong>문의 접수 및 상담</strong>: 홈페이지 문의 작성, 공개게시판 운영, 문의에 대한 답변 및 고객 상담</li>
             <li><strong>서비스 제공</strong>: IT 솔루션·개발 용역 관련 견적, 계약, 프로젝트 진행 안내</li>
+            <li><strong>회원 서비스</strong>: 회원 계정 생성·관리, 이메일 인증, 로그인 확인 및 인증 회원 대상 프로젝트 첨부파일 제공</li>
             <li><strong>홈페이지 운영</strong>: 서비스 품질 개선, 부정 이용 방지, 관리자 기능 제공</li>
           </ol>
 
@@ -87,6 +89,11 @@
                   <td>문의 작성 시 자동 등록</td>
                 </tr>
                 <tr>
+                  <td>회원가입 및 로그인</td>
+                  <td>이름, 이메일, Firebase 사용자 식별자, 이메일 인증 여부, 가입·최근 로그인 일시. 비밀번호는 Firebase Authentication에서 인증에 사용하며 회사 스프레드시트에는 저장하지 않습니다.</td>
+                  <td>회원가입·로그인 및 인증 과정</td>
+                </tr>
+                <tr>
                   <td>자동 수집</td>
                   <td>접속 IP, 쿠키, 접속 일시, 서비스 이용 기록</td>
                   <td>웹 브라우저·서비스 이용 과정</td>
@@ -105,6 +112,7 @@
                 <li>표시·광고에 관한 기록: 6개월 (전자상거래 등에서의 소비자보호에 관한 법률)</li>
               </ul>
             </li>
+            <li>회원 정보는 계정 삭제 시까지 보관합니다. 이용자는 회원 페이지에서 계정 삭제를 요청할 수 있으며, 삭제가 완료되면 Firebase 계정과 회원 관리 시트의 정보를 삭제합니다. 법령상 보존 의무가 있는 정보는 해당 기간 동안 별도 보관합니다.</li>
           </ol>
 
           <h2>제4조 (개인정보의 제3자 제공)</h2>
@@ -128,6 +136,10 @@
                 <tr>
                   <td>Google LLC (Google Forms·Google Sheets·Google Drive)</td>
                   <td>문의 데이터 저장, 백업, 첨부 이미지 저장</td>
+                </tr>
+                <tr>
+                  <td>Google LLC (Firebase Authentication)</td>
+                  <td>회원 이메일·비밀번호 인증, 계정 관리 및 인증 이메일 발송</td>
                 </tr>
                 <tr>
                   <td>GitHub, Inc.</td>
@@ -185,7 +197,7 @@
           </ul>
 
           <h2>제12조 (개인정보처리방침의 변경)</h2>
-          <p>이 개인정보처리방침은 2026년 6월 9일부터 적용됩니다. 내용의 추가·삭제·수정이 있을 경우 시행 7일 전부터 홈페이지 공지사항을 통해 고지합니다.</p>
+          <p>이 개인정보처리방침은 2026년 10월 23일부터 적용됩니다. 내용의 추가·삭제·수정이 있을 경우 시행 7일 전부터 홈페이지 공지사항을 통해 고지합니다.</p>
         </article>
       </div>
     </section>
@@ -214,6 +226,7 @@
     </div>
   </footer>
 
-  <script src="js/main.js?v=20260618"></script>
+  <script src="js/main.js?v=20261023a"></script>
+  <script src="js/member-auth.js?v=20261023a"></script>
 </body>
 </html>

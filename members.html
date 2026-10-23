@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="edgacst 회원가입 및 로그인. 이메일 인증 회원은 프로젝트 첨부파일을 다운로드할 수 있습니다.">
+  <meta name="robots" content="noindex, follow">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <script src="js/https-redirect.js?v=20261023a"></script>
+  <script src="js/config.js?v=20261023a"></script>
+  <script src="js/analytics.js?v=20260714"></script>
+  <link rel="stylesheet" href="css/style.css?v=20261023a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>회원가입·로그인 | edgacst</title>
+  <style>
+    .member-page { padding: 64px 0 88px; }
+    .member-shell { max-width: 760px; margin: 0 auto; }
+    .member-intro { margin-bottom: 28px; }
+    .member-auth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    .member-card { padding: 28px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.05); }
+    .member-card h2 { margin: 0 0 8px; font-size: 1.35rem; }
+    .member-card > p { margin: 0 0 22px; color: #64748b; line-height: 1.65; }
+    .member-card .form-group { margin-bottom: 16px; }
+    .member-card input[type="text"], .member-card input[type="email"], .member-card input[type="password"] { width: 100%; }
+    .member-consent { display: flex; gap: 9px; align-items: flex-start; margin: 18px 0; color: #475569; font-size: .9rem; line-height: 1.5; }
+    .member-consent input { margin-top: 4px; }
+    .member-message { margin: 18px 0; padding: 13px 16px; border-radius: 10px; background: #eff6ff; color: #1e3a8a; }
+    .member-message.is-error { background: #fef2f2; color: #991b1b; }
+    .member-account { padding: 22px; margin-bottom: 24px; border-radius: 14px; background: #f8fafc; }
+    .member-account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .member-help { margin-top: 24px; padding: 18px 20px; border-left: 3px solid #3b82f6; background: #f8fafc; color: #475569; line-height: 1.7; }
+    @media (max-width: 700px) { .member-auth-grid { grid-template-columns: 1fr; } .member-card { padding: 22px; } }
+  </style>
+</head>
+<body data-page="members">
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo"><span class="logo-en">edgacst</span><span class="logo-ko">(주)에드가씨에스티</span></a>
+      <nav class="nav" aria-label="주 메뉴">
+        <a href="index.html" class="nav-link">홈</a>
+        <a href="business.html" class="nav-link">사업영역</a>
+        <a href="portfolio.html" class="nav-link">포트폴리오</a>
+        <a href="status.html" class="nav-link">개발 업무현황</a>
+        <a href="faq.html" class="nav-link">FAQ</a>
+        <a href="board.html" class="nav-link">공개게시판</a>
+        <a href="members.html" class="nav-link active">회원가입/로그인</a>
+      </nav>
+      <button class="menu-toggle" aria-label="메뉴 열기"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+  <main>
+    <section class="page-hero"><div class="container"><span class="page-label">Members</span><h1 class="page-title">회원가입 · 로그인</h1><p class="page-desc">계정을 만들고 이메일을 인증하면 프로젝트 첨부파일을 다운로드할 수 있습니다.</p></div></section>
+    <section class="member-page"><div class="container member-shell">
+      <div class="member-intro"><div class="member-account"><strong>계정 상태</strong><p id="memberAccountState" aria-live="polite">로그인 상태를 확인하고 있습니다.</p><div class="member-account-actions"><button type="button" class="btn btn-outline-dark hidden" id="memberLogoutBtn">로그아웃</button><button type="button" class="btn btn-outline-dark hidden" id="memberResendVerificationBtn">인증 이메일 다시 보내기</button><button type="button" class="btn btn-outline-dark hidden" id="memberDeleteBtn">계정 삭제</button></div></div><p class="member-message" id="memberMessage" aria-live="polite">Firebase 설정 완료 후 회원가입을 이용할 수 있습니다.</p></div>
+      <div class="member-auth-grid">
+        <section class="member-card" id="memberSignupSection">
+          <h2>새 계정 만들기</h2><p>이름과 이메일 주소를 입력하세요. 가입 후 이메일 인증을 완료해야 파일을 내려받을 수 있습니다.</p>
+          <form id="memberSignupForm">
+            <div class="form-group"><label for="signupName">이름</label><input type="text" id="signupName" name="name" required maxlength="100" autocomplete="name"></div>
+            <div class="form-group"><label for="signupEmail">이메일</label><input type="email" id="signupEmail" name="email" required maxlength="254" autocomplete="email"></div>
+            <div class="form-group"><label for="signupPassword">비밀번호</label><input type="password" id="signupPassword" name="password" required minlength="8" autocomplete="new-password"></div>
+            <div class="form-group"><label for="signupPasswordConfirm">비밀번호 확인</label><input type="password" id="signupPasswordConfirm" name="passwordConfirm" required minlength="8" autocomplete="new-password"></div>
+            <label class="member-consent"><input type="checkbox" name="termsConsent" required><span><a href="terms.html" target="_blank" rel="noopener">이용약관</a>에 동의합니다.</span></label>
+            <label class="member-consent"><input type="checkbox" name="privacyConsent" required><span><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 확인했고 회원 정보 처리에 동의합니다.</span></label>
+            <button type="submit" class="btn btn-primary">가입하고 인증 메일 받기</button>
+          </form>
+        </section>
+        <section class="member-card" id="memberLoginSection">
+          <h2>로그인</h2><p>이메일 인증을 완료하면 회원 전용 프로젝트 파일을 다운로드할 수 있습니다.</p>
+          <form id="memberLoginForm">
+            <div class="form-group"><label for="loginEmail">이메일</label><input type="email" id="loginEmail" name="email" required autocomplete="email"></div>
+            <div class="form-group"><label for="loginPassword">비밀번호</label><input type="password" id="loginPassword" name="password" required autocomplete="current-password"></div>
+            <button type="submit" class="btn btn-primary">로그인</button>
+          </form>
+        </section>
+      </div>
+      <div class="member-help">가입 후 인증 메일의 링크를 눌러 인증한 다음 로그인해 주세요. 인증 메일이 보이지 않으면 스팸함을 확인하거나, 로그인 후 인증 메일을 다시 요청할 수 있습니다.</div>
+    </div></section>
+  </main>
+  <footer class="footer"><div class="container footer-inner"><div class="footer-brand"><span class="footer-logo">edgacst</span><span class="footer-company">(주)에드가씨에스티</span></div><div class="footer-info"><p>대표자 : 김기철</p><p>이메일 : <a href="mailto:freecompr@naver.com">freecompr@naver.com</a></p><p>전화 : <a href="tel:01084479973">010-8447-9973</a></p><p>사업자번호 : 634-81-02760</p><p>통신판매업 : 제 2026-부천원미-0446 호</p></div><nav class="footer-legal" aria-label="법적 고지"><a href="privacy.html">개인정보처리방침</a><span class="footer-legal-divider" aria-hidden="true">|</span><a href="terms.html">이용약관</a></nav><p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p></div></footer>
+  <script src="js/main.js?v=20261023a"></script>
+  <script src="js/member-auth.js?v=20261023a"></script>
+</body>
+</html>

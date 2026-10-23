@@ -2774,6 +2774,13 @@ body {
 }
 
 /* Responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .header-inner { gap: 12px; }
+  .logo { flex-shrink: 0; }
+  .nav { gap: 0; flex-shrink: 1; }
+  .nav-link { padding: 8px 10px; font-size: 0.82rem; white-space: nowrap; }
+}
+
 @media (max-width: 768px) {
   .menu-toggle {
     display: flex;

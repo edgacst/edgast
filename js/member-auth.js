@@ -184,7 +184,7 @@ function initMemberAuth() {
       if (!session.emailVerified) { memberMessage('이메일 인증 후 파일을 다운로드할 수 있습니다.', true); location.href = 'members.html'; return; }
       const isProgramDownload = Boolean(button.dataset.downloadId);
       const payload = isProgramDownload
-        ? { action: 'member-download', idToken: session.idToken, id: button.dataset.downloadId }
+        ? { action: 'member-download', idToken: session.idToken, id: button.dataset.downloadId, attachmentIndex: Number(button.dataset.downloadIndex || 0) }
         : { action: 'member-download-attachment', idToken: session.idToken, fileId: button.dataset.downloadAttachment };
       const response = await fetch(GOOGLE_CONFIG.SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
       const data = await response.json();

@@ -1,8 +1,9 @@
 const MAX_DOWNLOAD_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_DOWNLOAD_FILES = 5;
 const DOWNLOAD_FILE_EXTENSIONS = ['exe', 'msi', 'zip', 'rar', '7z', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'hwp', 'hwpx', 'txt', 'csv'];
 
 let downloadItems = [];
-let selectedDownloadFile = null;
+let selectedDownloadFiles = [];
 
 document.addEventListener('DOMContentLoaded', initDownloadPage);
 
@@ -49,14 +50,19 @@ function renderDownloads() {
   const admin = isAdminLoggedIn();
   body.innerHTML = downloadItems.map((item) => {
     const id = escapeHtml(String(item.id || ''));
+    const attachments = Array.isArray(item.attachments) && item.attachments.length
+      ? item.attachments
+      : (item.fileName ? [{ fileName: item.fileName, size: item.fileSize }] : []);
+    const totalSize = attachments.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+    const fileButtons = attachments.map((file, index) => `<button type="button" class="download-btn" data-download-id="${id}" data-download-index="${index}"><span aria-hidden="true">↓</span> ${escapeHtml(file.fileName || '다운로드')}</button>`).join('');
     const adminActions = admin
       ? `<div class="download-admin-actions"><button type="button" class="btn-sm btn-edit" data-download-edit="${id}">수정</button><button type="button" class="btn-sm btn-delete" data-download-delete="${id}">삭제</button></div>`
       : '';
     return `<tr data-download-row="${id}">
       <td class="download-name-cell"><strong>${escapeHtml(item.name || item.fileName || '프로그램')}</strong>${adminActions}</td>
       <td class="download-desc-cell">${escapeHtml(item.description || '-')}</td>
-      <td class="download-size-cell">${formatDownloadFileSize(item.fileSize)}</td>
-      <td class="download-file-cell"><button type="button" class="download-btn" data-download-id="${id}"><span aria-hidden="true">↓</span> ${escapeHtml(item.fileName || '다운로드')}</button></td>
+      <td class="download-size-cell">${formatDownloadFileSize(totalSize)}${attachments.length > 1 ? `<span class="download-file-count">${attachments.length}개 파일</span>` : ''}</td>
+      <td class="download-file-cell"><div class="download-file-buttons">${fileButtons}</div></td>
       <td class="download-count-cell" data-download-count>${Number(item.downloadCount) || 0}</td>
     </tr>`;
   }).join('');
@@ -133,37 +139,52 @@ function initDownloadForm() {
   const form = document.getElementById('downloadForm');
   const fileInput = document.getElementById('downloadFile');
   fileInput?.addEventListener('change', () => {
-    const file = fileInput.files?.[0] || null;
-    if (!file) return;
-    const extension = file.name.split('.').pop().toLowerCase();
-    if (!DOWNLOAD_FILE_EXTENSIONS.includes(extension)) {
-      showToast('등록할 수 없는 파일 형식입니다.');
+    const files = Array.from(fileInput.files || []);
+    const available = MAX_DOWNLOAD_FILES - selectedDownloadFiles.length;
+    if (!files.length) return;
+    if (available <= 0) {
+      showToast(`첨부파일은 최대 ${MAX_DOWNLOAD_FILES}개까지 등록할 수 있습니다.`);
       fileInput.value = '';
       return;
     }
-    if (!file.size || file.size > MAX_DOWNLOAD_FILE_SIZE) {
-      showToast('첨부파일은 10MB 이하의 파일만 등록할 수 있습니다.');
-      fileInput.value = '';
-      return;
+    const accepted = [];
+    for (const file of files.slice(0, available)) {
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (!DOWNLOAD_FILE_EXTENSIONS.includes(extension)) {
+        showToast(`${file.name}: 등록할 수 없는 파일 형식입니다.`);
+        continue;
+      }
+      if (!file.size || file.size > MAX_DOWNLOAD_FILE_SIZE) {
+        showToast(`${file.name}: 10MB 이하의 파일만 등록할 수 있습니다.`);
+        continue;
+      }
+      const duplicate = selectedDownloadFiles.some((item) => item.fileName === file.name && Number(item.size) === file.size);
+      if (!duplicate) accepted.push(file);
     }
-    selectedDownloadFile = file;
+    accepted.forEach((file) => selectedDownloadFiles.push({ file, fileName: file.name, size: file.size, isLocal: true }));
     const nameInput = document.getElementById('downloadName');
-    if (nameInput && !nameInput.value.trim()) nameInput.value = file.name.replace(/\.[^.]+$/, '');
-    renderSelectedDownloadFile();
+    if (nameInput && !nameInput.value.trim() && accepted[0]) nameInput.value = accepted[0].name.replace(/\.[^.]+$/, '');
+    if (files.length > available) showToast(`첨부파일은 최대 ${MAX_DOWNLOAD_FILES}개까지 등록할 수 있습니다.`);
+    fileInput.value = '';
+    renderSelectedDownloadFiles();
+  });
+
+  document.getElementById('downloadFilePreview')?.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-remove-download-file]');
+    if (!remove) return;
+    selectedDownloadFiles.splice(Number(remove.dataset.removeDownloadFile), 1);
+    renderSelectedDownloadFiles();
   });
 
   form?.addEventListener('submit', saveDownloadItem);
   document.getElementById('downloadCancelBtn')?.addEventListener('click', resetDownloadForm);
 }
 
-function renderSelectedDownloadFile(existingName = '') {
+function renderSelectedDownloadFiles() {
   const preview = document.getElementById('downloadFilePreview');
   if (!preview) return;
-  const label = selectedDownloadFile
-    ? `${selectedDownloadFile.name} · ${formatDownloadFileSize(selectedDownloadFile.size)}`
-    : existingName;
-  preview.textContent = label ? `첨부파일: ${label}` : '';
-  preview.classList.toggle('hidden', !label);
+  preview.innerHTML = selectedDownloadFiles.map((item, index) => `<div class="download-file-preview-item"><span>${escapeHtml(item.fileName || '첨부파일')} · ${formatDownloadFileSize(item.size)}</span><button type="button" class="project-image-remove" data-remove-download-file="${index}" aria-label="첨부파일 삭제">×</button></div>`).join('');
+  preview.classList.toggle('hidden', !selectedDownloadFiles.length);
 }
 
 async function saveDownloadItem(event) {
@@ -171,25 +192,28 @@ async function saveDownloadItem(event) {
   if (!isAdminLoggedIn()) return showToast('관리자 로그인이 필요합니다.');
 
   const id = document.getElementById('downloadId').value;
-  const existing = downloadItems.find((item) => String(item.id) === String(id));
-  if (!selectedDownloadFile && !existing) return showToast('첨부파일을 선택해 주세요.');
+  if (!selectedDownloadFiles.length) return showToast('첨부파일을 한 개 이상 선택해 주세요.');
 
   const submit = document.getElementById('downloadSubmitBtn');
   submit.disabled = true;
   submit.textContent = id ? '수정 중...' : '등록 중...';
 
   try {
-    let attachment = null;
-    if (selectedDownloadFile) {
+    const attachments = [];
+    for (const item of selectedDownloadFiles) {
+      if (!item.isLocal) {
+        attachments.push({ existingIndex: item.existingIndex });
+        continue;
+      }
       const uploaded = await apiPost({
         action: 'download-upload-file',
         token: getAdminPassword(),
-        base64: await fileToBase64(selectedDownloadFile),
-        mimeType: selectedDownloadFile.type || 'application/octet-stream',
-        fileName: selectedDownloadFile.name
+        base64: await fileToBase64(item.file),
+        mimeType: item.file.type || 'application/octet-stream',
+        fileName: item.file.name
       });
-      if (!uploaded.success || !uploaded.attachment) throw new Error(uploaded.error || '파일 업로드에 실패했습니다.');
-      attachment = uploaded.attachment;
+      if (!uploaded.success || !uploaded.attachment) throw new Error(uploaded.error || `${item.fileName} 업로드에 실패했습니다.`);
+      attachments.push(uploaded.attachment);
     }
 
     const saved = await apiPost({
@@ -199,7 +223,7 @@ async function saveDownloadItem(event) {
         id: id || null,
         name: document.getElementById('downloadName').value.trim(),
         description: document.getElementById('downloadDescription').value.trim(),
-        attachment
+        attachments
       }
     });
     if (!saved.success) throw new Error(saved.error || '저장하지 못했습니다.');
@@ -223,10 +247,13 @@ function startDownloadEdit(id) {
   document.getElementById('downloadSubmitBtn').textContent = '수정';
   document.getElementById('downloadCancelBtn').classList.remove('hidden');
   document.getElementById('downloadFileRequired').classList.add('hidden');
-  document.getElementById('downloadFileHint').textContent = '새 파일을 선택하면 기존 첨부파일을 교체합니다.';
-  selectedDownloadFile = null;
+  document.getElementById('downloadFileHint').textContent = '기존 파일을 유지하거나 삭제하고 새 파일을 추가할 수 있습니다. 최대 5개';
+  const attachments = Array.isArray(item.attachments) && item.attachments.length
+    ? item.attachments
+    : (item.fileName ? [{ fileName: item.fileName, size: item.fileSize }] : []);
+  selectedDownloadFiles = attachments.map((file, index) => ({ fileName: file.fileName, size: Number(file.size) || 0, isLocal: false, existingIndex: index }));
   document.getElementById('downloadFile').value = '';
-  renderSelectedDownloadFile(`${item.fileName || '첨부파일'} · ${formatDownloadFileSize(item.fileSize)}`);
+  renderSelectedDownloadFiles();
   document.getElementById('downloadAdminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -251,9 +278,9 @@ function resetDownloadForm() {
   document.getElementById('downloadSubmitBtn').textContent = '등록';
   document.getElementById('downloadCancelBtn').classList.add('hidden');
   document.getElementById('downloadFileRequired').classList.remove('hidden');
-  document.getElementById('downloadFileHint').textContent = 'EXE·MSI·압축파일·문서, 파일당 10MB 이하';
-  selectedDownloadFile = null;
-  renderSelectedDownloadFile();
+  document.getElementById('downloadFileHint').textContent = 'EXE·MSI·압축파일·문서, 파일당 10MB 이하, 최대 5개';
+  selectedDownloadFiles = [];
+  renderSelectedDownloadFiles();
 }
 
 async function refreshDownloadMemberNotice() {

@@ -119,8 +119,8 @@ function doGet(e) {
     if (action === 'health') {
       return json_({
         success: true,
-        version: 5,
-        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin']
+        version: 6,
+        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin', 'download-multiple-files']
       });
     }
 
@@ -663,13 +663,27 @@ function getDownloadsSheet_() {
   let sheet = ss.getSheetByName(DOWNLOAD_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(DOWNLOAD_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 9).setValues([[
-      'ID', '파일명', '프로그램설명', '파일용량', '첨부파일ID', '첨부파일명', 'MIME타입', '다운로드수', '수정일시'
+    sheet.getRange(1, 1, 1, 10).setValues([[
+      'ID', '파일명', '프로그램설명', '파일용량', '첨부파일ID', '첨부파일명', 'MIME타입', '첨부파일목록', '다운로드수', '수정일시'
     ]]);
-    sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
     sheet.setTabColor('#0ea5e9');
   }
+  ensureDownloadAttachmentsColumn_(sheet);
   return sheet;
+}
+
+function ensureDownloadAttachmentsColumn_(sheet) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  if (headers.indexOf('첨부파일목록') >= 0) return;
+  const countIdx = headers.indexOf('다운로드수');
+  if (countIdx >= 0) {
+    sheet.insertColumnBefore(countIdx + 1);
+    sheet.getRange(1, countIdx + 1).setValue('첨부파일목록').setFontWeight('bold');
+    return;
+  }
+  sheet.getRange(1, lastCol + 1).setValue('첨부파일목록').setFontWeight('bold');
 }
 
 function listDownloads_() {
@@ -680,13 +694,16 @@ function listDownloads_() {
   const downloads = [];
   for (let i = 1; i < values.length; i++) {
     const item = parseDownloadRow_(values[i], headers, i + 1);
-    if (!item.id || !item.fileName) continue;
+    if (!item.id || !item.attachments.length) continue;
     downloads.push({
       id: item.id,
       name: item.name,
       description: item.description,
-      fileSize: item.fileSize,
-      fileName: item.fileName,
+      fileSize: item.attachments.reduce(function (sum, file) { return sum + (Number(file.size) || 0); }, 0),
+      fileName: item.attachments[0].fileName,
+      attachments: item.attachments.map(function (file) {
+        return { fileName: file.fileName, size: file.size, mimeType: file.mimeType };
+      }),
       downloadCount: item.downloadCount,
       updatedAt: item.updatedAt
     });
@@ -700,18 +717,50 @@ function parseDownloadRow_(row, headers, rowIndex) {
     const index = headers.indexOf(name);
     return index >= 0 ? row[index] : '';
   };
+  const legacy = {
+    fileId: String(get('첨부파일ID') || ''),
+    fileName: String(get('첨부파일명') || ''),
+    mimeType: String(get('MIME타입') || 'application/octet-stream'),
+    size: Number(get('파일용량')) || 0
+  };
+  const attachments = parseDownloadAttachments_(get('첨부파일목록'), legacy);
   return {
     row: rowIndex,
     id: String(get('ID') || ''),
     name: String(get('파일명') || ''),
     description: String(get('프로그램설명') || ''),
-    fileSize: Number(get('파일용량')) || 0,
-    fileId: String(get('첨부파일ID') || ''),
-    fileName: String(get('첨부파일명') || ''),
-    mimeType: String(get('MIME타입') || 'application/octet-stream'),
+    fileSize: attachments.reduce(function (sum, file) { return sum + (Number(file.size) || 0); }, 0),
+    fileId: attachments.length ? attachments[0].fileId : '',
+    fileName: attachments.length ? attachments[0].fileName : '',
+    mimeType: attachments.length ? attachments[0].mimeType : 'application/octet-stream',
+    attachments: attachments,
     downloadCount: Number(get('다운로드수')) || 0,
     updatedAt: String(get('수정일시') || '')
   };
+}
+
+function parseDownloadAttachments_(value, legacy) {
+  const raw = String(value || '').trim();
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const attachments = parsed.filter(function (item) {
+          return item && item.fileId && item.fileName;
+        }).map(function (item) {
+          return {
+            fileId: String(item.fileId),
+            fileName: String(item.fileName),
+            mimeType: String(item.mimeType || 'application/octet-stream'),
+            size: Number(item.size) || 0
+          };
+        });
+        if (attachments.length) return attachments;
+      }
+    } catch (e) {}
+  }
+  if (legacy && legacy.fileId && legacy.fileName) return [legacy];
+  return [];
 }
 
 function findDownloadRowById_(sheet, id) {
@@ -754,17 +803,45 @@ function handleDownloadSave_(data) {
   const sheet = getDownloadsSheet_();
   const id = input.id ? String(input.id) : String(Date.now());
   const row = findDownloadRowById_(sheet, id);
-  const existing = row ? parseDownloadRow_(sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0], sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String), row) : null;
-  const attachment = input.attachment || null;
-  const fileId = attachment && attachment.fileId ? String(attachment.fileId) : (existing ? existing.fileId : '');
-  const fileName = attachment && attachment.fileName ? String(attachment.fileName) : (existing ? existing.fileName : '');
-  const mimeType = attachment && attachment.mimeType ? String(attachment.mimeType) : (existing ? existing.mimeType : 'application/octet-stream');
-  const fileSize = attachment && attachment.size ? Number(attachment.size) : (existing ? existing.fileSize : 0);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const existing = row ? parseDownloadRow_(sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0], headers, row) : null;
+  const existingAttachments = existing ? existing.attachments : [];
+  const requestedAttachments = Array.isArray(input.attachments) ? input.attachments : (input.attachment ? [input.attachment] : null);
+  let attachments = existingAttachments;
+  if (requestedAttachments) {
+    attachments = requestedAttachments.map(function (attachment) {
+      const existingIndex = Number(attachment && attachment.existingIndex);
+      if (attachment && attachment.existingIndex !== undefined && Number.isInteger(existingIndex) && existingAttachments[existingIndex]) {
+        return existingAttachments[existingIndex];
+      }
+      if (!attachment || !attachment.fileId || !attachment.fileName) return null;
+      return {
+        fileId: String(attachment.fileId),
+        fileName: String(attachment.fileName),
+        mimeType: String(attachment.mimeType || 'application/octet-stream'),
+        size: Number(attachment.size) || 0
+      };
+    }).filter(Boolean);
+  }
+  if (attachments.length > 5) return json_({ success: false, error: '첨부파일은 최대 5개까지 등록할 수 있습니다.' });
   const name = String(input.name || '').trim();
   const description = String(input.description || '').trim();
-  if (!name || !description || !fileId || !fileName) return json_({ success: false, error: '필수 정보를 모두 입력해 주세요.' });
+  if (!name || !description || !attachments.length) return json_({ success: false, error: '필수 정보를 모두 입력해 주세요.' });
   const now = Utilities.formatDate(new Date(), 'Asia/Seoul', "yyyy-MM-dd'T'HH:mm:ss");
-  const values = [id, name, description, fileSize, fileId, fileName, mimeType, existing ? existing.downloadCount : 0, now];
+  const first = attachments[0];
+  const fieldMap = {
+    'ID': id,
+    '파일명': name,
+    '프로그램설명': description,
+    '파일용량': attachments.reduce(function (sum, file) { return sum + (Number(file.size) || 0); }, 0),
+    '첨부파일ID': first.fileId,
+    '첨부파일명': first.fileName,
+    'MIME타입': first.mimeType,
+    '첨부파일목록': JSON.stringify(attachments),
+    '다운로드수': existing ? existing.downloadCount : 0,
+    '수정일시': now
+  };
+  const values = headers.map(function (header) { return fieldMap[header] !== undefined ? fieldMap[header] : ''; });
   if (row) sheet.getRange(row, 1, 1, values.length).setValues([values]);
   else sheet.appendRow(values);
   return json_({ success: true, id: id });
@@ -786,7 +863,10 @@ function handleMemberDownload_(data) {
   if (!row) return json_({ success: false, error: '다운로드 항목을 찾을 수 없습니다.' });
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
   const item = parseDownloadRow_(sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0], headers, row);
-  const payload = driveFilePayload_(item.fileId);
+  const attachmentIndex = Math.max(0, Number(data.attachmentIndex) || 0);
+  const attachment = item.attachments[attachmentIndex];
+  if (!attachment) return json_({ success: false, error: '첨부파일을 찾을 수 없습니다.' });
+  const payload = driveFilePayload_(attachment.fileId);
   if (!payload.success) return json_(payload);
 
   const countColumn = headers.indexOf('다운로드수') + 1;

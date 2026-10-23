@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <script src="js/https-redirect.js?v=20260714"></script>
+  <script src="js/config.js?v=20261023d"></script>
+  <script src="js/analytics.js?v=20260714"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="회원가입 후 무료로 다운로드하여 사용할 수 있는 edgacst 범용 프로그램 자료실입니다.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://edgcst.com/download.html">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="edgacst">
+  <meta property="og:title" content="무료 프로그램 다운로드 | edgacst">
+  <meta property="og:description" content="회원가입 후 무료로 사용할 수 있는 범용 프로그램을 다운로드하세요.">
+  <meta property="og:url" content="https://edgcst.com/download.html">
+  <title>무료 프로그램 다운로드 | edgacst</title>
+  <link rel="stylesheet" href="css/style.css?v=20261023b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body data-page="download">
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <span class="logo-en">edgacst</span>
+        <span class="logo-ko">(주)에드가씨에스티</span>
+      </a>
+      <nav class="nav" aria-label="주 메뉴">
+        <a href="index.html" class="nav-link">홈</a>
+        <a href="business.html" class="nav-link">사업영역</a>
+        <a href="portfolio.html" class="nav-link">포트폴리오</a>
+        <a href="status.html" class="nav-link">개발 업무현황</a>
+        <a href="faq.html" class="nav-link">FAQ</a>
+        <a href="board.html" class="nav-link">공개게시판</a>
+        <a href="download.html" class="nav-link active">다운로드</a>
+        <a href="members.html" class="nav-link">회원가입/로그인</a>
+      </nav>
+      <button class="menu-toggle" aria-label="메뉴 열기">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero download-hero">
+      <div class="container">
+        <span class="page-label">Download</span>
+        <h1 class="page-title">회원가입만 하면 무료로 다운로드하여 사용할 수 있는 범용 프로그램입니다</h1>
+        <p class="page-desc">필요한 프로그램을 확인하고 회원 로그인 후 안전하게 내려받으세요.</p>
+      </div>
+    </section>
+
+    <section class="section download-section">
+      <div class="container">
+        <div class="download-member-notice" id="downloadMemberNotice" aria-live="polite">
+          <div>
+            <strong>회원 전용 무료 다운로드</strong>
+            <p>회원가입 후 이메일 인증과 로그인을 완료하면 모든 프로그램을 무료로 다운로드할 수 있습니다.</p>
+          </div>
+          <a href="members.html" class="btn btn-outline-dark" id="downloadMemberLink">회원가입 · 로그인</a>
+        </div>
+
+        <div class="admin-panel download-admin-panel hidden" id="downloadAdminPanel">
+          <div class="admin-panel-header">
+            <div>
+              <span class="download-admin-label">Administrator</span>
+              <h2>프로그램 등록 · 수정</h2>
+            </div>
+            <button type="button" class="btn btn-outline-dark" id="downloadAdminLogoutBtn">로그아웃</button>
+          </div>
+          <form class="admin-form" id="downloadForm">
+            <input type="hidden" id="downloadId" name="id">
+            <div class="download-form-grid">
+              <div class="form-group">
+                <label for="downloadName">파일명 <span class="required">*</span></label>
+                <input type="text" id="downloadName" name="name" maxlength="160" required placeholder="목록에 표시할 프로그램명">
+              </div>
+              <div class="form-group">
+                <label for="downloadFile">첨부파일 <span class="required" id="downloadFileRequired">*</span></label>
+                <input type="file" id="downloadFile" name="file" accept=".exe,.msi,.zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.hwpx,.txt,.csv">
+                <p class="form-hint" id="downloadFileHint">EXE·MSI·압축파일·문서, 파일당 10MB 이하</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="downloadDescription">프로그램 설명 <span class="required">*</span></label>
+              <textarea id="downloadDescription" name="description" rows="4" maxlength="1000" required placeholder="프로그램의 주요 기능과 사용 방법을 입력해 주세요"></textarea>
+            </div>
+            <div class="download-file-preview hidden" id="downloadFilePreview" aria-live="polite"></div>
+            <div class="admin-form-actions">
+              <button type="submit" class="btn btn-primary" id="downloadSubmitBtn">등록</button>
+              <button type="button" class="btn btn-outline-dark hidden" id="downloadCancelBtn">취소</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="download-list-head">
+          <div>
+            <span class="download-list-label">Free Software</span>
+            <h2>프로그램 다운로드</h2>
+          </div>
+          <p id="downloadListCount">프로그램을 불러오는 중입니다.</p>
+        </div>
+
+        <div class="download-table-wrap">
+          <table class="download-table">
+            <thead>
+              <tr>
+                <th class="download-th-name">파일명</th>
+                <th class="download-th-desc">프로그램설명</th>
+                <th class="download-th-size">파일용량</th>
+                <th class="download-th-file">첨부파일</th>
+                <th class="download-th-count">다운로드수</th>
+              </tr>
+            </thead>
+            <tbody id="downloadTableBody">
+              <tr><td colspan="5" class="download-state-cell"><span class="board-loading-spinner"></span>목록을 불러오는 중입니다.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="loginModal">
+    <div class="modal-backdrop" id="loginModalBackdrop"></div>
+    <div class="modal-content">
+      <h2 class="modal-title">관리자 로그인</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="adminPassword">비밀번호</label>
+          <input type="password" id="adminPassword" required placeholder="관리자 비밀번호">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline-dark" id="loginCancelBtn">취소</button>
+          <button type="submit" class="btn btn-primary">로그인</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand"><span class="footer-logo">edgacst</span><span class="footer-company">(주)에드가씨에스티</span></div>
+      <div class="footer-info">
+        <p>대표자 : 김기철</p>
+        <p>이메일 : <a href="mailto:freecompr@naver.com">freecompr@naver.com</a></p>
+        <p>전화 : <a href="tel:01084479973">010-8447-9973</a></p>
+        <p>주소 : 경기도 부천시 상동 457</p>
+        <p>사업자번호 : 634-81-02760</p>
+        <p>통신판매업 : 제 2026-부천원미-0446 호</p>
+      </div>
+      <button type="button" class="footer-admin-btn" id="adminLoginBtn">관리자</button>
+      <nav class="footer-legal" aria-label="법적 고지">
+        <a href="privacy.html">개인정보처리방침</a><span class="footer-legal-divider" aria-hidden="true">|</span><a href="terms.html">이용약관</a>
+      </nav>
+      <p class="footer-copy">&copy; 2026 edgacst. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js?v=20261023b"></script>
+  <script src="js/member-auth.js?v=20261023b"></script>
+  <script src="js/download.js?v=20261023a"></script>
+</body>
+</html>

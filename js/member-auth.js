@@ -114,7 +114,7 @@ function initMemberAuth() {
   const loginForm = document.getElementById('memberLoginForm');
   const signupSection = document.getElementById('memberSignupSection');
   const loginSection = document.getElementById('memberLoginSection');
-  const downloadsAvailable = document.querySelector('[data-download-attachment]');
+  const downloadsAvailable = document.querySelector('[data-download-attachment], [data-download-id]');
   if (!signupForm && !loginForm && !downloadsAvailable && !document.querySelector('.nav a[href="members.html"]')) return;
 
   signupForm?.addEventListener('submit', async (event) => {
@@ -174,7 +174,7 @@ function initMemberAuth() {
   });
 
   document.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-download-attachment]');
+    const button = event.target.closest('[data-download-attachment], [data-download-id]');
     if (!button) return;
     event.preventDefault();
     button.disabled = true;
@@ -182,7 +182,11 @@ function initMemberAuth() {
       const session = await currentMemberSession();
       if (!session) { memberMessage('첨부파일 다운로드는 로그인 후 이용할 수 있습니다.', true); location.href = 'members.html'; return; }
       if (!session.emailVerified) { memberMessage('이메일 인증 후 파일을 다운로드할 수 있습니다.', true); location.href = 'members.html'; return; }
-      const response = await fetch(GOOGLE_CONFIG.SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'member-download-attachment', idToken: session.idToken, fileId: button.dataset.downloadAttachment }) });
+      const isProgramDownload = Boolean(button.dataset.downloadId);
+      const payload = isProgramDownload
+        ? { action: 'member-download', idToken: session.idToken, id: button.dataset.downloadId }
+        : { action: 'member-download-attachment', idToken: session.idToken, fileId: button.dataset.downloadAttachment };
+      const response = await fetch(GOOGLE_CONFIG.SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
       const data = await response.json();
       if (!data.success) throw new Error(data.error || '다운로드에 실패했습니다.');
       const binary = atob(data.base64);
@@ -192,6 +196,10 @@ function initMemberAuth() {
       const anchor = document.createElement('a');
       anchor.href = objectUrl; anchor.download = data.fileName || 'attachment'; anchor.click();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      if (isProgramDownload) {
+        const count = button.closest('tr')?.querySelector('[data-download-count]');
+        if (count) count.textContent = String(Number(count.textContent || 0) + 1);
+      }
     } catch (error) { memberMessage(error.message || '다운로드에 실패했습니다.', true); }
     finally { button.disabled = false; }
   });

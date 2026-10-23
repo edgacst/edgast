@@ -23,7 +23,7 @@ const GOOGLE_CONFIG = {
 // Firebase Console → 프로젝트 설정 → 일반 → 웹 API 키를 입력하세요.
 // 이 값은 웹에서 공개되는 프로젝트 식별용 키입니다. 비밀번호로 취급하지 않습니다.
 const FIREBASE_CONFIG = {
-  API_KEY: 'AIzaSyA4jXihgK_AH_F0PQQEFSfJHUpSYhw7qLY'
+  API_KEY: 'AIzaSyA4jXihgK_AH_FOPQQEFSfJhUpSYhw7qLY'
 };
 
 (function earlyPrefetch() {

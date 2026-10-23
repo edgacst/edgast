@@ -82,6 +82,72 @@ async function currentMemberSession() {
   return session;
 }
 
+async function memberDownloadRequest(payload) {
+  const response = await fetch(GOOGLE_CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || '다운로드에 실패했습니다.');
+  return data;
+}
+
+function decodeBase64Bytes(base64) {
+  const binary = atob(base64 || '');
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function saveBrowserDownload(parts, mimeType, fileName) {
+  const objectUrl = URL.createObjectURL(new Blob(parts, { type: mimeType || 'application/octet-stream' }));
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName || 'attachment';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+}
+
+async function downloadProgramFile(button, session) {
+  const basePayload = {
+    action: 'member-download',
+    idToken: session.idToken,
+    id: button.dataset.downloadId,
+    attachmentIndex: Number(button.dataset.downloadIndex || 0)
+  };
+  const manifest = await memberDownloadRequest(basePayload);
+  if (!manifest.chunked) {
+    saveBrowserDownload([decodeBase64Bytes(manifest.base64)], manifest.mimeType, manifest.fileName);
+    return;
+  }
+
+  const chunkCount = Number(manifest.chunkCount) || 0;
+  if (!chunkCount || chunkCount > 100) throw new Error('다운로드 파일 구성이 올바르지 않습니다.');
+  const parts = [];
+  let receivedSize = 0;
+  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+    button.textContent = `다운로드 ${chunkIndex + 1}/${chunkCount}`;
+    const chunk = await memberDownloadRequest({ ...basePayload, chunkIndex });
+    const bytes = decodeBase64Bytes(chunk.base64);
+    receivedSize += bytes.byteLength;
+    parts.push(bytes);
+  }
+  if (Number(manifest.size) > 0 && receivedSize !== Number(manifest.size)) {
+    throw new Error('파일 크기가 일치하지 않습니다. 다시 시도해 주세요.');
+  }
+  saveBrowserDownload(parts, manifest.mimeType, manifest.fileName);
+  await memberDownloadRequest({
+    action: 'member-download-complete',
+    idToken: session.idToken,
+    id: button.dataset.downloadId,
+    attachmentIndex: Number(button.dataset.downloadIndex || 0)
+  });
+}
+
 function memberMessage(message, isError = false) {
   const node = document.getElementById('memberMessage');
   if (node) {
@@ -177,31 +243,23 @@ function initMemberAuth() {
     const button = event.target.closest('[data-download-attachment], [data-download-id]');
     if (!button) return;
     event.preventDefault();
+    const originalButtonHtml = button.innerHTML;
     button.disabled = true;
     try {
       const session = await currentMemberSession();
       if (!session) { memberMessage('첨부파일 다운로드는 로그인 후 이용할 수 있습니다.', true); location.href = 'members.html'; return; }
       if (!session.emailVerified) { memberMessage('이메일 인증 후 파일을 다운로드할 수 있습니다.', true); location.href = 'members.html'; return; }
       const isProgramDownload = Boolean(button.dataset.downloadId);
-      const payload = isProgramDownload
-        ? { action: 'member-download', idToken: session.idToken, id: button.dataset.downloadId, attachmentIndex: Number(button.dataset.downloadIndex || 0) }
-        : { action: 'member-download-attachment', idToken: session.idToken, fileId: button.dataset.downloadAttachment };
-      const response = await fetch(GOOGLE_CONFIG.SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || '다운로드에 실패했습니다.');
-      const binary = atob(data.base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const objectUrl = URL.createObjectURL(new Blob([bytes], { type: data.mimeType || 'application/octet-stream' }));
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl; anchor.download = data.fileName || 'attachment'; anchor.click();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       if (isProgramDownload) {
+        await downloadProgramFile(button, session);
         const count = button.closest('tr')?.querySelector('[data-download-count]');
         if (count) count.textContent = String(Number(count.textContent || 0) + 1);
+      } else {
+        const data = await memberDownloadRequest({ action: 'member-download-attachment', idToken: session.idToken, fileId: button.dataset.downloadAttachment });
+        saveBrowserDownload([decodeBase64Bytes(data.base64)], data.mimeType, data.fileName);
       }
     } catch (error) { memberMessage(error.message || '다운로드에 실패했습니다.', true); }
-    finally { button.disabled = false; }
+    finally { button.disabled = false; button.innerHTML = originalButtonHtml; }
   });
 
   currentMemberSession().then(renderMemberState).catch(() => { clearMemberSession(); renderMemberState(null); });

@@ -22,7 +22,10 @@ const PROJECT_SHEET_NAME = '개발업무';
 const MEMBER_SHEET_NAME = '회원';
 const DOWNLOAD_SHEET_NAME = '다운로드';
 const FIREBASE_API_KEY_FALLBACK = 'AIzaSyA4jXihgK_AH_FOPQQEFSfJhUpSYhw7qLY';
-const MAX_DOWNLOAD_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_DOWNLOAD_FILE_SIZE = 200 * 1024 * 1024;
+const MAX_DOWNLOAD_CHUNK_SIZE = 6 * 1024 * 1024;
+const MAX_DOWNLOAD_CHUNKS = 40;
+const MAX_LEGACY_DOWNLOAD_FILE_SIZE = 10 * 1024 * 1024;
 
 function onOpen() {
   try {
@@ -119,8 +122,8 @@ function doGet(e) {
     if (action === 'health') {
       return json_({
         success: true,
-        version: 6,
-        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin', 'download-multiple-files']
+        version: 7,
+        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin', 'download-multiple-files', 'download-large-files']
       });
     }
 
@@ -168,6 +171,14 @@ function doPost(e) {
 
     if (data.action === 'member-download') {
       return handleMemberDownload_(data);
+    }
+
+    if (data.action === 'member-download-complete') {
+      return handleMemberDownloadComplete_(data);
+    }
+
+    if (data.action === 'download-upload-chunk') {
+      return handleDownloadUploadChunk_(data);
     }
 
     if (data.action === 'download-upload-file') {
@@ -746,13 +757,16 @@ function parseDownloadAttachments_(value, legacy) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         const attachments = parsed.filter(function (item) {
-          return item && item.fileId && item.fileName;
+          return item && item.fileName && (item.fileId || (Array.isArray(item.chunkFileIds) && item.chunkFileIds.length));
         }).map(function (item) {
           return {
-            fileId: String(item.fileId),
+            fileId: String(item.fileId || ''),
             fileName: String(item.fileName),
             mimeType: String(item.mimeType || 'application/octet-stream'),
-            size: Number(item.size) || 0
+            size: Number(item.size) || 0,
+            storage: String(item.storage || (item.chunkFileIds ? 'chunks' : 'single')),
+            uploadFolderId: String(item.uploadFolderId || ''),
+            chunkFileIds: Array.isArray(item.chunkFileIds) ? item.chunkFileIds.map(String).filter(Boolean) : []
           };
         });
         if (attachments.length) return attachments;
@@ -779,13 +793,49 @@ function getOrCreateDownloadFolder_() {
   return folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
 }
 
+function isAllowedDownloadFile_(fileName) {
+  const extension = getFileExtension_(fileName);
+  const allowed = ['exe', 'msi', 'zip', 'rar', '7z', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'hwp', 'hwpx', 'txt', 'csv'];
+  return allowed.indexOf(extension) >= 0;
+}
+
+function handleDownloadUploadChunk_(data) {
+  if (!isAdminToken_(data.token)) return json_({ success: false, error: 'unauthorized' });
+  const fileName = sanitizeFileName_(data.fileName || 'download');
+  if (!isAllowedDownloadFile_(fileName)) return json_({ success: false, error: '등록할 수 없는 파일 형식입니다.' });
+
+  const totalSize = Number(data.totalSize) || 0;
+  const totalChunks = Number(data.totalChunks) || 0;
+  const chunkIndex = Number(data.chunkIndex);
+  if (!totalSize || totalSize > MAX_DOWNLOAD_FILE_SIZE) return json_({ success: false, error: '파일은 200MB 이하만 등록할 수 있습니다.' });
+  if (!Number.isInteger(totalChunks) || totalChunks < 1 || totalChunks > MAX_DOWNLOAD_CHUNKS) return json_({ success: false, error: '파일 조각 수가 올바르지 않습니다.' });
+  if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex >= totalChunks) return json_({ success: false, error: '파일 조각 번호가 올바르지 않습니다.' });
+
+  const bytes = decodeUploadBytes_(data.base64, MAX_DOWNLOAD_CHUNK_SIZE);
+  if (!bytes.success) return json_({ success: false, error: bytes.error });
+  let folder;
+  try {
+    folder = data.uploadFolderId
+      ? DriveApp.getFolderById(String(data.uploadFolderId))
+      : getOrCreateDownloadFolder_().createFolder('chunks-' + Date.now() + '-' + Utilities.getUuid().substring(0, 8));
+  } catch (e) {
+    return json_({ success: false, error: '업로드 폴더를 준비하지 못했습니다.' });
+  }
+
+  const partName = fileName + '.part-' + String(chunkIndex + 1).padStart(3, '0') + '-of-' + String(totalChunks).padStart(3, '0');
+  const file = folder.createFile(Utilities.newBlob(bytes.value, 'application/octet-stream', partName));
+  return json_({
+    success: true,
+    uploadFolderId: folder.getId(),
+    chunk: { fileId: file.getId(), index: chunkIndex, size: file.getSize() }
+  });
+}
+
 function handleDownloadUploadFile_(data) {
   if (!isAdminToken_(data.token)) return json_({ success: false, error: 'unauthorized' });
   const fileName = sanitizeFileName_(data.fileName || 'download');
-  const extension = getFileExtension_(fileName);
-  const allowed = ['exe', 'msi', 'zip', 'rar', '7z', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'hwp', 'hwpx', 'txt', 'csv'];
-  if (allowed.indexOf(extension) < 0) return json_({ success: false, error: '등록할 수 없는 파일 형식입니다.' });
-  const bytes = decodeUploadBytes_(data.base64, MAX_DOWNLOAD_FILE_SIZE);
+  if (!isAllowedDownloadFile_(fileName)) return json_({ success: false, error: '등록할 수 없는 파일 형식입니다.' });
+  const bytes = decodeUploadBytes_(data.base64, MAX_LEGACY_DOWNLOAD_FILE_SIZE);
   if (!bytes.success) return json_({ success: false, error: bytes.error });
   const mimeType = String(data.mimeType || 'application/octet-stream');
   const file = getOrCreateDownloadFolder_().createFile(Utilities.newBlob(bytes.value, mimeType, fileName));
@@ -814,16 +864,25 @@ function handleDownloadSave_(data) {
       if (attachment && attachment.existingIndex !== undefined && Number.isInteger(existingIndex) && existingAttachments[existingIndex]) {
         return existingAttachments[existingIndex];
       }
-      if (!attachment || !attachment.fileId || !attachment.fileName) return null;
+      if (!attachment || !attachment.fileName) return null;
+      const chunkFileIds = Array.isArray(attachment.chunkFileIds) ? attachment.chunkFileIds.map(String).filter(Boolean) : [];
+      if (!attachment.fileId && !chunkFileIds.length) return null;
+      if (chunkFileIds.length > MAX_DOWNLOAD_CHUNKS) return null;
       return {
-        fileId: String(attachment.fileId),
+        fileId: String(attachment.fileId || ''),
         fileName: String(attachment.fileName),
         mimeType: String(attachment.mimeType || 'application/octet-stream'),
-        size: Number(attachment.size) || 0
+        size: Number(attachment.size) || 0,
+        storage: chunkFileIds.length ? 'chunks' : 'single',
+        uploadFolderId: String(attachment.uploadFolderId || ''),
+        chunkFileIds: chunkFileIds
       };
     }).filter(Boolean);
   }
   if (attachments.length > 5) return json_({ success: false, error: '첨부파일은 최대 5개까지 등록할 수 있습니다.' });
+  if (attachments.some(function (attachment) { return Number(attachment.size) > MAX_DOWNLOAD_FILE_SIZE; })) {
+    return json_({ success: false, error: '파일은 200MB 이하만 등록할 수 있습니다.' });
+  }
   const name = String(input.name || '').trim();
   const description = String(input.description || '').trim();
   if (!name || !description || !attachments.length) return json_({ success: false, error: '필수 정보를 모두 입력해 주세요.' });
@@ -866,10 +925,58 @@ function handleMemberDownload_(data) {
   const attachmentIndex = Math.max(0, Number(data.attachmentIndex) || 0);
   const attachment = item.attachments[attachmentIndex];
   if (!attachment) return json_({ success: false, error: '첨부파일을 찾을 수 없습니다.' });
+  const chunkFileIds = Array.isArray(attachment.chunkFileIds) ? attachment.chunkFileIds : [];
+  if (chunkFileIds.length) {
+    const hasChunkIndex = data.chunkIndex !== undefined && data.chunkIndex !== null && data.chunkIndex !== '';
+    if (!hasChunkIndex) {
+      return json_({
+        success: true,
+        chunked: true,
+        chunkCount: chunkFileIds.length,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        size: attachment.size
+      });
+    }
+    const chunkIndex = Number(data.chunkIndex);
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex >= chunkFileIds.length) {
+      return json_({ success: false, error: '파일 조각 번호가 올바르지 않습니다.' });
+    }
+    const chunkPayload = driveFilePayload_(chunkFileIds[chunkIndex]);
+    if (!chunkPayload.success) return json_(chunkPayload);
+    chunkPayload.chunked = true;
+    chunkPayload.chunkIndex = chunkIndex;
+    chunkPayload.chunkCount = chunkFileIds.length;
+    chunkPayload.fileName = attachment.fileName;
+    chunkPayload.mimeType = attachment.mimeType;
+    return json_(chunkPayload);
+  }
+
   const payload = driveFilePayload_(attachment.fileId);
   if (!payload.success) return json_(payload);
+  incrementDownloadCount_(sheet, row, headers);
+  return json_(payload);
+}
 
+function handleMemberDownloadComplete_(data) {
+  requireVerifiedMember_(data.idToken);
+  const sheet = getDownloadsSheet_();
+  const row = findDownloadRowById_(sheet, data.id);
+  if (!row) return json_({ success: false, error: '다운로드 항목을 찾을 수 없습니다.' });
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const item = parseDownloadRow_(sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0], headers, row);
+  const attachmentIndex = Math.max(0, Number(data.attachmentIndex) || 0);
+  const attachment = item.attachments[attachmentIndex];
+  if (!attachment || !Array.isArray(attachment.chunkFileIds) || !attachment.chunkFileIds.length) {
+    return json_({ success: false, error: '대용량 첨부파일을 찾을 수 없습니다.' });
+  }
+  incrementDownloadCount_(sheet, row, headers);
+  return json_({ success: true });
+}
+
+function incrementDownloadCount_(sheet, row, headers) {
   const countColumn = headers.indexOf('다운로드수') + 1;
+  if (countColumn < 1) return;
   const lock = LockService.getScriptLock();
   lock.waitLock(5000);
   try {
@@ -878,7 +985,6 @@ function handleMemberDownload_(data) {
   } finally {
     lock.releaseLock();
   }
-  return json_(payload);
 }
 
 function driveFilePayload_(fileId) {

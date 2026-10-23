@@ -1,4 +1,5 @@
-const MAX_DOWNLOAD_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_DOWNLOAD_FILE_SIZE = 200 * 1024 * 1024;
+const DOWNLOAD_UPLOAD_CHUNK_SIZE = 6 * 1024 * 1024;
 const MAX_DOWNLOAD_FILES = 5;
 const DOWNLOAD_FILE_EXTENSIONS = ['exe', 'msi', 'zip', 'rar', '7z', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'hwp', 'hwpx', 'txt', 'csv'];
 
@@ -155,7 +156,7 @@ function initDownloadForm() {
         continue;
       }
       if (!file.size || file.size > MAX_DOWNLOAD_FILE_SIZE) {
-        showToast(`${file.name}: 10MB 이하의 파일만 등록할 수 있습니다.`);
+        showToast(`${file.name}: 200MB 이하의 파일만 등록할 수 있습니다.`);
         continue;
       }
       const duplicate = selectedDownloadFiles.some((item) => item.fileName === file.name && Number(item.size) === file.size);
@@ -183,8 +184,57 @@ function initDownloadForm() {
 function renderSelectedDownloadFiles() {
   const preview = document.getElementById('downloadFilePreview');
   if (!preview) return;
-  preview.innerHTML = selectedDownloadFiles.map((item, index) => `<div class="download-file-preview-item"><span>${escapeHtml(item.fileName || '첨부파일')} · ${formatDownloadFileSize(item.size)}</span><button type="button" class="project-image-remove" data-remove-download-file="${index}" aria-label="첨부파일 삭제">×</button></div>`).join('');
+  preview.innerHTML = selectedDownloadFiles.map((item, index) => `<div class="download-file-preview-item"><span>${escapeHtml(item.fileName || '첨부파일')} · ${formatDownloadFileSize(item.size)}${item.progressText ? ` · ${escapeHtml(item.progressText)}` : ''}</span><button type="button" class="project-image-remove" data-remove-download-file="${index}" aria-label="첨부파일 삭제"${item.uploading ? ' disabled' : ''}>×</button></div>`).join('');
   preview.classList.toggle('hidden', !selectedDownloadFiles.length);
+}
+
+async function blobToBase64(blob) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('파일 조각을 읽지 못했습니다.'));
+    reader.readAsDataURL(blob);
+  });
+  return dataUrl.split(',')[1] || '';
+}
+
+async function uploadDownloadFileInChunks(item, onProgress) {
+  const file = item.file;
+  const totalChunks = Math.ceil(file.size / DOWNLOAD_UPLOAD_CHUNK_SIZE);
+  const chunkFileIds = [];
+  let uploadFolderId = '';
+
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    const start = chunkIndex * DOWNLOAD_UPLOAD_CHUNK_SIZE;
+    const chunk = file.slice(start, Math.min(start + DOWNLOAD_UPLOAD_CHUNK_SIZE, file.size));
+    onProgress(chunkIndex, totalChunks);
+    const uploaded = await apiPost({
+      action: 'download-upload-chunk',
+      token: getAdminPassword(),
+      uploadFolderId,
+      chunkIndex,
+      totalChunks,
+      totalSize: file.size,
+      base64: await blobToBase64(chunk),
+      mimeType: file.type || 'application/octet-stream',
+      fileName: file.name
+    });
+    if (!uploaded.success || !uploaded.chunk?.fileId) {
+      throw new Error(uploaded.error || `${file.name} 업로드에 실패했습니다.`);
+    }
+    uploadFolderId = uploaded.uploadFolderId || uploadFolderId;
+    chunkFileIds.push(uploaded.chunk.fileId);
+  }
+
+  onProgress(totalChunks, totalChunks);
+  return {
+    fileName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    size: file.size,
+    storage: 'chunks',
+    uploadFolderId,
+    chunkFileIds
+  };
 }
 
 async function saveDownloadItem(event) {
@@ -205,15 +255,16 @@ async function saveDownloadItem(event) {
         attachments.push({ existingIndex: item.existingIndex });
         continue;
       }
-      const uploaded = await apiPost({
-        action: 'download-upload-file',
-        token: getAdminPassword(),
-        base64: await fileToBase64(item.file),
-        mimeType: item.file.type || 'application/octet-stream',
-        fileName: item.file.name
+      item.uploading = true;
+      const uploaded = await uploadDownloadFileInChunks(item, (completed, total) => {
+        item.progressText = completed >= total ? '업로드 완료' : `업로드 ${completed + 1}/${total}`;
+        submit.textContent = `${item.fileName} ${item.progressText}`;
+        renderSelectedDownloadFiles();
       });
-      if (!uploaded.success || !uploaded.attachment) throw new Error(uploaded.error || `${item.fileName} 업로드에 실패했습니다.`);
-      attachments.push(uploaded.attachment);
+      item.uploading = false;
+      item.progressText = '업로드 완료';
+      renderSelectedDownloadFiles();
+      attachments.push(uploaded);
     }
 
     const saved = await apiPost({
@@ -247,7 +298,7 @@ function startDownloadEdit(id) {
   document.getElementById('downloadSubmitBtn').textContent = '수정';
   document.getElementById('downloadCancelBtn').classList.remove('hidden');
   document.getElementById('downloadFileRequired').classList.add('hidden');
-  document.getElementById('downloadFileHint').textContent = '기존 파일을 유지하거나 삭제하고 새 파일을 추가할 수 있습니다. 최대 5개';
+  document.getElementById('downloadFileHint').textContent = '기존 파일을 유지하거나 삭제하고 새 파일을 추가할 수 있습니다. 파일당 200MB, 최대 5개';
   const attachments = Array.isArray(item.attachments) && item.attachments.length
     ? item.attachments
     : (item.fileName ? [{ fileName: item.fileName, size: item.fileSize }] : []);
@@ -278,7 +329,7 @@ function resetDownloadForm() {
   document.getElementById('downloadSubmitBtn').textContent = '등록';
   document.getElementById('downloadCancelBtn').classList.add('hidden');
   document.getElementById('downloadFileRequired').classList.remove('hidden');
-  document.getElementById('downloadFileHint').textContent = 'EXE·MSI·압축파일·문서, 파일당 10MB 이하, 최대 5개';
+  document.getElementById('downloadFileHint').textContent = 'EXE·MSI·압축파일·문서, 파일당 200MB 이하, 최대 5개';
   selectedDownloadFiles = [];
   renderSelectedDownloadFiles();
 }

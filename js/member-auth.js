@@ -231,6 +231,15 @@ function initMemberAuth() {
 
   loginForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (loginForm.getAttribute('aria-busy') === 'true') return;
+    const loginButton = loginForm.querySelector('button[type="submit"]');
+    const originalLabel = loginButton?.textContent || '로그인';
+    loginForm.setAttribute('aria-busy', 'true');
+    if (loginButton) {
+      loginButton.disabled = true;
+      loginButton.textContent = '계정 확인 중...';
+    }
+    memberMessage('계정 확인 중...');
     try {
       const result = await firebaseAuthRequest('accounts:signInWithPassword', { email: loginForm.elements.email.value.trim(), password: loginForm.elements.password.value, returnSecureToken: true });
       const user = await lookupMember(result.idToken);
@@ -241,6 +250,13 @@ function initMemberAuth() {
       renderMemberState(session);
       memberMessage(session.emailVerified ? '로그인되었습니다. 회원 전용 파일을 다운로드할 수 있습니다.' : '로그인되었습니다. 다운로드하려면 이메일 인증을 완료해 주세요.');
     } catch (error) { memberMessage(error.message || '로그인에 실패했습니다.', true); }
+    finally {
+      loginForm.removeAttribute('aria-busy');
+      if (loginButton) {
+        loginButton.disabled = false;
+        loginButton.textContent = originalLabel;
+      }
+    }
   });
 
   document.getElementById('memberLogoutBtn')?.addEventListener('click', () => {

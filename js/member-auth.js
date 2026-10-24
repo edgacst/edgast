@@ -157,6 +157,34 @@ function memberMessage(message, isError = false) {
   if (typeof showToast === 'function') showToast(message);
 }
 
+function initPasswordVisibilityToggles() {
+  document.querySelectorAll('#memberSignupForm input[type="password"], #memberLoginForm input[type="password"]').forEach((input) => {
+    if (input.parentElement?.classList.contains('password-field')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'password-field';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'password-toggle';
+    button.setAttribute('aria-controls', input.id);
+    button.setAttribute('aria-label', '비밀번호 표시');
+    button.setAttribute('aria-pressed', 'false');
+    button.title = '비밀번호 표시';
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="password-eye-slash" d="M4 4l16 16"></path></svg>';
+    button.addEventListener('click', () => {
+      const showPassword = input.type === 'password';
+      input.type = showPassword ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(showPassword));
+      button.setAttribute('aria-label', showPassword ? '비밀번호 숨기기' : '비밀번호 표시');
+      button.title = showPassword ? '비밀번호 숨기기' : '비밀번호 표시';
+      input.focus({ preventScroll: true });
+    });
+    wrapper.appendChild(button);
+  });
+}
+
 function renderMemberState(session) {
   const state = document.getElementById('memberAccountState');
   const logout = document.getElementById('memberLogoutBtn');
@@ -176,6 +204,7 @@ function renderMemberState(session) {
 }
 
 function initMemberAuth() {
+  initPasswordVisibilityToggles();
   const signupForm = document.getElementById('memberSignupForm');
   const loginForm = document.getElementById('memberLoginForm');
   const signupSection = document.getElementById('memberSignupSection');

@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   clearLegacySecretsAndPrivateCache();
+  initAdminPasswordVisibilityToggle();
   initActiveNav();
   initPageTransitions();
   initHeaderScroll();
@@ -57,6 +58,40 @@ const MAX_PROJECT_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PROJECT_ATTACHMENT_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'text/plain', 'text/csv', 'application/haansofthwp', 'application/vnd.hancom.hwp', 'application/vnd.hancom.hwpx', 'application/octet-stream'];
 
 let projectAttachments = [];
+
+function initAdminPasswordVisibilityToggle() {
+  const input = document.getElementById('adminPassword');
+  if (!input || input.parentElement?.classList.contains('password-field')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'password-field';
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'password-toggle';
+  button.setAttribute('aria-pressed', 'false');
+  button.setAttribute('aria-label', '비밀번호 표시');
+  button.title = '비밀번호 표시';
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="password-eye-slash" d="M4 4l16 16"></path></svg>';
+  button.addEventListener('click', () => {
+    const showPassword = input.type === 'password';
+    input.type = showPassword ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(showPassword));
+    button.setAttribute('aria-label', showPassword ? '비밀번호 숨기기' : '비밀번호 표시');
+    button.title = showPassword ? '비밀번호 숨기기' : '비밀번호 표시';
+    input.focus();
+  });
+  wrapper.appendChild(button);
+}
+
+function readAdminPasswordInput() {
+  const input = document.getElementById('adminPassword');
+  const password = String(input?.value || '').trim();
+  if (input && input.value !== password) input.value = password;
+  return password;
+}
 
 function initStatusPage() {
   const tbody = document.getElementById('statusTableBody');
@@ -751,10 +786,13 @@ function initStatusAdmin() {
 
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const password = document.getElementById('adminPassword').value;
+    const password = readAdminPasswordInput();
     try {
       const data = await apiPost({ action: 'admin-auth', token: password });
-      if (!data.success) throw new Error('unauthorized');
+      if (!data.success) {
+        showToast('비밀번호가 일치하지 않습니다. Apps Script의 관리자 비밀번호를 확인해 주세요.');
+        return;
+      }
       sessionStorage.setItem(ADMIN_SESSION_KEY, password);
       closeLoginModal();
       updateAdminUI();
@@ -767,7 +805,7 @@ function initStatusAdmin() {
       migrateLocalProjectsIfNeeded();
       if (adminPanel) adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch {
-      showToast('비밀번호가 올바르지 않습니다.');
+      showToast('관리자 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   });
 
@@ -1888,10 +1926,13 @@ function initInquiryLogin() {
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const password = document.getElementById('adminPassword').value;
+    const password = readAdminPasswordInput();
     try {
       const data = await apiPost({ action: 'admin-auth', token: password });
-      if (!data.success) throw new Error('unauthorized');
+      if (!data.success) {
+        showToast('비밀번호가 일치하지 않습니다. Apps Script의 관리자 비밀번호를 확인해 주세요.');
+        return;
+      }
       sessionStorage.setItem(ADMIN_SESSION_KEY, password);
       closeLoginModal();
       updateInquiryAdminBtn();
@@ -1900,7 +1941,7 @@ function initInquiryLogin() {
       showToast('관리자 로그인되었습니다.');
       document.getElementById('inquiryListSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch {
-      showToast('비밀번호가 올바르지 않습니다.');
+      showToast('관리자 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   });
 

@@ -109,17 +109,20 @@ function initDownloadAdmin() {
 
   loginForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const password = document.getElementById('adminPassword').value;
+    const password = readAdminPasswordInput();
     try {
       const data = await apiPost({ action: 'admin-auth', token: password });
-      if (!data.success) throw new Error('unauthorized');
+      if (!data.success) {
+        showToast('비밀번호가 일치하지 않습니다. Apps Script의 관리자 비밀번호를 확인해 주세요.');
+        return;
+      }
       sessionStorage.setItem(ADMIN_SESSION_KEY, password);
       closeLoginModal();
       updateDownloadAdminUI();
       showToast('관리자 로그인되었습니다.');
       document.getElementById('downloadAdminPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch {
-      showToast('비밀번호가 올바르지 않습니다.');
+      showToast('관리자 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   });
 

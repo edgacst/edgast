@@ -176,8 +176,12 @@ function initDownloadForm() {
   document.getElementById('downloadFilePreview')?.addEventListener('click', (event) => {
     const remove = event.target.closest('[data-remove-download-file]');
     if (!remove) return;
-    selectedDownloadFiles.splice(Number(remove.dataset.removeDownloadFile), 1);
+    const index = Number(remove.dataset.removeDownloadFile);
+    const removed = selectedDownloadFiles.splice(index, 1)[0];
     renderSelectedDownloadFiles();
+    showToast(removed?.isLocal
+      ? '첨부 목록에서 제거했습니다.'
+      : '수정 버튼을 누르면 이 파일이 삭제됩니다.');
   });
 
   form?.addEventListener('submit', saveDownloadItem);
@@ -187,7 +191,7 @@ function initDownloadForm() {
 function renderSelectedDownloadFiles() {
   const preview = document.getElementById('downloadFilePreview');
   if (!preview) return;
-  preview.innerHTML = selectedDownloadFiles.map((item, index) => `<div class="download-file-preview-item"><span>${escapeHtml(item.fileName || '첨부파일')} · ${formatDownloadFileSize(item.size)}${item.progressText ? ` · ${escapeHtml(item.progressText)}` : ''}</span><button type="button" class="project-image-remove" data-remove-download-file="${index}" aria-label="첨부파일 삭제"${item.uploading ? ' disabled' : ''}>×</button></div>`).join('');
+  preview.innerHTML = selectedDownloadFiles.map((item, index) => `<div class="download-file-preview-item"><span class="download-file-preview-name">${escapeHtml(item.fileName || '첨부파일')} · ${formatDownloadFileSize(item.size)}${item.progressText ? ` · ${escapeHtml(item.progressText)}` : ''}</span><button type="button" class="download-file-remove" data-remove-download-file="${index}" aria-label="${escapeHtml(item.fileName || '첨부파일')} 삭제"${item.uploading ? ' disabled' : ''}><span aria-hidden="true">×</span> 삭제</button></div>`).join('');
   preview.classList.toggle('hidden', !selectedDownloadFiles.length);
 }
 

@@ -122,8 +122,8 @@ function doGet(e) {
     if (action === 'health') {
       return json_({
         success: true,
-        version: 7,
-        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin', 'download-multiple-files', 'download-large-files']
+        version: 8,
+        features: ['list', 'projects', 'downloads', 'reply', 'delete', 'project-save', 'project-delete', 'project-upload-image', 'project-upload-attachment', 'member-auth', 'member-download', 'download-admin', 'download-multiple-files', 'download-large-files', 'download-file-delete']
       });
     }
 
@@ -883,6 +883,13 @@ function handleDownloadSave_(data) {
   if (attachments.some(function (attachment) { return Number(attachment.size) > MAX_DOWNLOAD_FILE_SIZE; })) {
     return json_({ success: false, error: '파일은 200MB 이하만 등록할 수 있습니다.' });
   }
+  const retainedAttachmentKeys = {};
+  attachments.forEach(function (attachment) {
+    retainedAttachmentKeys[getDownloadAttachmentKey_(attachment)] = true;
+  });
+  const removedAttachments = existingAttachments.filter(function (attachment) {
+    return !retainedAttachmentKeys[getDownloadAttachmentKey_(attachment)];
+  });
   const name = String(input.name || '').trim();
   const description = String(input.description || '').trim();
   if (!name || !description || !attachments.length) return json_({ success: false, error: '필수 정보를 모두 입력해 주세요.' });
@@ -903,7 +910,43 @@ function handleDownloadSave_(data) {
   const values = headers.map(function (header) { return fieldMap[header] !== undefined ? fieldMap[header] : ''; });
   if (row) sheet.getRange(row, 1, 1, values.length).setValues([values]);
   else sheet.appendRow(values);
-  return json_({ success: true, id: id });
+  let removedFileCount = 0;
+  removedAttachments.forEach(function (attachment) {
+    if (trashDownloadAttachment_(attachment)) removedFileCount++;
+  });
+  return json_({ success: true, id: id, removedFileCount: removedFileCount });
+}
+
+function getDownloadAttachmentKey_(attachment) {
+  const chunkFileIds = Array.isArray(attachment && attachment.chunkFileIds)
+    ? attachment.chunkFileIds.map(String).filter(Boolean)
+    : [];
+  if (chunkFileIds.length) return 'chunks:' + String(attachment.uploadFolderId || '') + ':' + chunkFileIds.join(',');
+  return 'single:' + String(attachment && attachment.fileId || '');
+}
+
+function trashDownloadAttachment_(attachment) {
+  if (!attachment) return false;
+  const uploadFolderId = String(attachment.uploadFolderId || '');
+  if (uploadFolderId) {
+    try {
+      DriveApp.getFolderById(uploadFolderId).setTrashed(true);
+      return true;
+    } catch (e) {}
+  }
+
+  const fileIds = Array.isArray(attachment.chunkFileIds)
+    ? attachment.chunkFileIds.map(String).filter(Boolean)
+    : [];
+  if (attachment.fileId) fileIds.push(String(attachment.fileId));
+  let trashed = false;
+  fileIds.forEach(function (fileId) {
+    try {
+      DriveApp.getFileById(fileId).setTrashed(true);
+      trashed = true;
+    } catch (e) {}
+  });
+  return trashed;
 }
 
 function handleDownloadDelete_(data) {
